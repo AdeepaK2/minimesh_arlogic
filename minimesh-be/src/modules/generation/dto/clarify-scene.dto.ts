@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { ChatContextSchema } from '../generation-context.types';
 
-export const GenerateSceneRequestSchema = z.object({
+export const ClarifySceneRequestSchema = z.object({
   prompt: z.string().trim().min(3).max(1200),
   chatContext: ChatContextSchema,
 });
 
-export type GenerateSceneRequest = z.infer<typeof GenerateSceneRequestSchema>;
+export type ClarifySceneRequest = z.infer<typeof ClarifySceneRequestSchema>;

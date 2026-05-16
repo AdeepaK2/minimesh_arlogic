@@ -2,69 +2,56 @@ import {
   BadRequestException,
   Body,
   Controller,
-  Delete,
   Get,
-  Param,
-  Patch,
   Post,
+  Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
-import { ZodError, ZodType } from 'zod';
+import { ZodError } from 'zod';
+import type { AuthenticatedRequest } from '../../common/auth/auth.types';
 import { SupabaseAuthGuard } from '../../common/auth/supabase-auth.guard';
 import {
-  CreateObjectTemplateSchema,
-  SearchObjectTemplatesSchema,
-  UpdateObjectTemplateSchema,
-} from './dto/object-template.dto';
+  ApprovedReferenceRequest,
+  ApprovedReferenceRequestSchema,
+} from './dto/approved-reference.dto';
 import { TemplatesService } from './templates.service';
 
-@Controller('admin/object-templates')
+@Controller('templates')
 @UseGuards(SupabaseAuthGuard)
 export class TemplatesController {
   constructor(private readonly templatesService: TemplatesService) {}
 
-  @Get()
-  listObjectTemplates() {
-    return this.templatesService.listObjectTemplates();
-  }
-
-  @Post('search')
-  searchObjectTemplates(@Body() body: unknown) {
-    const input = this.validateBody(SearchObjectTemplatesSchema, body);
-    return this.templatesService.searchObjectTemplates(
-      input.query,
-      input.limit,
+  @Post('approved-references')
+  approveReference(
+    @Req() request: AuthenticatedRequest,
+    @Body() body: unknown,
+  ) {
+    return this.templatesService.approveReference(
+      request.authUser.id,
+      this.validateApprovalRequest(body),
     );
   }
 
-  @Post()
-  createObjectTemplate(@Body() body: unknown) {
-    return this.templatesService.createObjectTemplate(
-      this.validateBody(CreateObjectTemplateSchema, body),
+  @Get('approved-references')
+  listApprovedReferences(
+    @Query('query') query = '',
+    @Query('limit') limit = '12',
+  ) {
+    return this.templatesService.searchApprovedReferences(
+      query,
+      Number(limit) || 12,
     );
   }
 
-  @Patch(':id')
-  updateObjectTemplate(@Param('id') id: string, @Body() body: unknown) {
-    return this.templatesService.updateObjectTemplate(
-      id,
-      this.validateBody(UpdateObjectTemplateSchema, body),
-    );
-  }
-
-  @Delete(':id')
-  deleteObjectTemplate(@Param('id') id: string) {
-    return this.templatesService.deleteObjectTemplate(id);
-  }
-
-  private validateBody<T>(schema: ZodType<T>, body: unknown): T {
+  private validateApprovalRequest(body: unknown): ApprovedReferenceRequest {
     try {
-      return schema.parse(body);
+      return ApprovedReferenceRequestSchema.parse(body);
     } catch (error) {
       if (error instanceof ZodError) {
         throw new BadRequestException({
-          message: 'Invalid object template payload.',
-          issues: error.issues,
+          message: 'Invalid approved reference request.',
+          errors: error.issues.map((issue) => issue.message),
         });
       }
 

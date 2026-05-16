@@ -7,7 +7,12 @@ import {
 } from '@nestjs/common';
 import { z } from 'zod';
 import { MINIMAX_TEXT_PROVIDER } from '../../ai/minimax/minimax.types';
-import type { MiniMaxTextProvider } from '../../ai/minimax/minimax.types';
+import type {
+  MiniMaxChatRequest,
+  MiniMaxCompletion,
+  MiniMaxMessage,
+  MiniMaxTextProvider,
+} from '../../ai/minimax/minimax.types';
 import {
   SceneDocument,
   SceneDocumentSchema,
@@ -17,17 +22,50 @@ import type { SceneEntity, SceneObject } from '../../schemas/scene.schema';
 import {
   createGenerationUserPrompt,
   createRepairPrompt,
+  createSpatialRepairPrompt,
   FALLBACK_LIGHTS,
   SCENE_SYSTEM_PROMPT,
 } from './generation.prompts';
+import { ContextBuilderService } from './context-builder.service';
+import { ContextCompactionService } from './context-compaction.service';
+import type {
+  ChatContext,
+  GenerationUsage,
+} from './generation-context.types';
 import { GenerationPlannerService } from './generation-planner.service';
 import { LightingAgentService } from './lighting-agent.service';
 import { PartGenerationService } from './part-generation.service';
+import { ScaleAgentService } from './scale-agent.service';
 import { SceneAssemblyService } from './scene-assembly.service';
+import { TemplatesService } from '../templates/templates.service';
+import { TokenUsageService } from './token-usage.service';
 
 export interface GenerateSceneResult {
   scene: SceneDocument;
   warnings: string[];
+  usage?: GenerationUsage;
+}
+
+export interface ClarificationOption {
+  id: string;
+  label: string;
+  resolvedPrompt: string;
+}
+
+export type GenerationClarificationResult =
+  | {
+      status: 'ready';
+      resolvedPrompt: string;
+    }
+  | {
+      status: 'needs_clarification';
+      question: string;
+      options: ClarificationOption[];
+    };
+
+interface PreparedContext {
+  contextMessage?: MiniMaxMessage;
+  memory?: GenerationUsage['memory'];
 }
 
 interface ParsedSceneAttempt {
@@ -36,7 +74,7 @@ interface ParsedSceneAttempt {
 }
 
 const EntityRefinementOutputSchema = z.object({
-  objects: z.array(SceneObjectSchema).min(1).max(24),
+  objects: z.array(SceneObjectSchema).max(24),
   warnings: z.array(z.string().max(200)).max(8).default([]),
 });
 
@@ -53,31 +91,66 @@ export class GenerationService {
     private readonly sceneAssemblyService?: SceneAssemblyService,
     @Optional()
     private readonly lightingAgentService?: LightingAgentService,
+    @Optional()
+    private readonly scaleAgentService?: ScaleAgentService,
+    @Optional()
+    private readonly contextBuilderService?: ContextBuilderService,
+    @Optional()
+    private readonly contextCompactionService?: ContextCompactionService,
+    @Optional()
+    private readonly tokenUsageService?: TokenUsageService,
+    @Optional()
+    private readonly templatesService?: TemplatesService,
   ) {}
 
-  async generateScene(prompt: string): Promise<GenerateSceneResult> {
-    if (this.shouldUsePartPipeline(prompt)) {
+  async generateScene(
+    prompt: string,
+    chatContext?: ChatContext,
+    textProvider?: MiniMaxTextProvider,
+  ): Promise<GenerateSceneResult> {
+    if (!textProvider && this.shouldUsePartPipeline(prompt)) {
       const pipelineResult = await this.tryGenerateSceneWithParts(prompt);
 
       if (pipelineResult) {
-        return pipelineResult;
+        return this.withEstimatedUsage(prompt, pipelineResult);
       }
     }
 
-    return this.generateSceneDirectly(prompt);
+    return this.generateSceneDirectly(prompt, chatContext, textProvider);
+  }
+
+  clarifyScenePrompt(prompt: string): GenerationClarificationResult {
+    const cricketWicketAmbiguity = this.detectCricketWicketAmbiguity(prompt);
+
+    if (cricketWicketAmbiguity) {
+      return cricketWicketAmbiguity;
+    }
+
+    return {
+      status: 'ready',
+      resolvedPrompt: prompt,
+    };
   }
 
   async editScene(
     scene: SceneDocument,
     instruction: string,
+    chatContext?: ChatContext,
+    textProvider?: MiniMaxTextProvider,
   ): Promise<GenerateSceneResult> {
     const trustedScene = this.ensureEntities(SceneDocumentSchema.parse(scene));
-    const rawOutput = await this.textProvider.complete({
-      messages: [
-        {
-          role: 'system',
-          name: 'MiniMeshSceneEditor',
-          content: `${SCENE_SYSTEM_PROMPT}
+    const preparedContext = await this.prepareContext(
+      chatContext,
+      trustedScene,
+    );
+    const approvedReferenceMessage = await this.buildApprovedReferenceMessage(
+      instruction,
+    );
+    const messages: MiniMaxMessage[] = [
+      {
+        role: 'system',
+        name: 'MiniMeshSceneEditor',
+        content: `${SCENE_SYSTEM_PROMPT}
 
 You are editing an existing MiniMesh SceneDocument.
 Return the full updated scene JSON, not a patch.
@@ -85,47 +158,78 @@ Preserve ids for unchanged objects, entities, and lights.
 Preserve unrelated entities unless the user clearly asks to remove or replace them.
 If the input scene contains entities or environment, include valid updated entities or environment when useful.
 Never return code or markdown.`,
-        },
-        {
-          role: 'user',
-          name: 'user',
-          content: `Current scene:
+      },
+      ...(preparedContext.contextMessage ? [preparedContext.contextMessage] : []),
+      ...(approvedReferenceMessage ? [approvedReferenceMessage] : []),
+      {
+        role: 'user',
+        name: 'user',
+        content: `Current scene:
 ${JSON.stringify(trustedScene, null, 2)}
 
 Instruction:
 ${instruction}
 
 Return only the complete updated MiniMesh scene JSON.`,
-        },
-      ],
-      maxCompletionTokens: 5200,
-      temperature: 0.2,
-    });
-    const firstAttempt = this.parseAndValidate(rawOutput);
+      },
+    ];
+    const completion = await this.completeWithUsage(
+      {
+        messages,
+        maxCompletionTokens: 5200,
+        temperature: 0.2,
+      },
+      textProvider,
+    );
+    const firstAttempt = this.parseAndValidate(completion.content);
 
     if (firstAttempt.scene) {
+      const editedScene = this.applyVisualDefaults(instruction, firstAttempt.scene);
+      const spatialErrors = this.validateSpatialLayout(editedScene);
+
+      if (spatialErrors.length > 0) {
+        const repairedScene = await this.repairSpatialLayout(
+          instruction,
+          editedScene,
+          spatialErrors,
+          preparedContext.memory,
+          textProvider,
+        );
+
+        return {
+          scene: repairedScene.scene,
+          warnings: ['Edited scene from chat.'],
+          usage: repairedScene.usage,
+        };
+      }
+
       return {
-        scene: this.applyVisualDefaults(instruction, firstAttempt.scene),
+        scene: editedScene,
         warnings: ['Edited scene from chat.'],
+        usage: this.createUsage(messages, completion, preparedContext.memory),
       };
     }
 
-    const repairedOutput = await this.textProvider.complete({
-      messages: [
-        {
-          role: 'system',
-          name: 'MiniMeshSceneEditor',
-          content: SCENE_SYSTEM_PROMPT,
-        },
-        {
-          role: 'user',
-          name: 'user',
-          content: createRepairPrompt(rawOutput, firstAttempt.errors),
-        },
-      ],
-      temperature: 0.2,
-    });
-    const repairAttempt = this.parseAndValidate(repairedOutput);
+    const repairMessages: MiniMaxMessage[] = [
+      {
+        role: 'system',
+        name: 'MiniMeshSceneEditor',
+        content: SCENE_SYSTEM_PROMPT,
+      },
+      {
+        role: 'user',
+        name: 'user',
+        content: createRepairPrompt(completion.content, firstAttempt.errors),
+      },
+    ];
+    const repairedOutput = await this.completeWithUsage(
+      {
+        messages: repairMessages,
+        temperature: 0.2,
+      },
+      textProvider,
+    );
+    const repairAttempt = this.parseAndValidate(repairedOutput.content);
 
     if (!repairAttempt.scene) {
       throw new BadGatewayException({
@@ -134,12 +238,39 @@ Return only the complete updated MiniMesh scene JSON.`,
       });
     }
 
+    const editedScene = this.applyVisualDefaults(instruction, repairAttempt.scene);
+    const spatialErrors = this.validateSpatialLayout(editedScene);
+
+    if (spatialErrors.length > 0) {
+      const repairedScene = await this.repairSpatialLayout(
+        instruction,
+        editedScene,
+        spatialErrors,
+        preparedContext.memory,
+        textProvider,
+      );
+
+      return {
+        scene: repairedScene.scene,
+        warnings: [
+          'Edited scene from chat.',
+          'Initial MiniMax edit output was repaired before validation.',
+        ],
+        usage: repairedScene.usage,
+      };
+    }
+
     return {
-      scene: this.applyVisualDefaults(instruction, repairAttempt.scene),
+      scene: editedScene,
       warnings: [
         'Edited scene from chat.',
         'Initial MiniMax edit output was repaired before validation.',
       ],
+      usage: this.createUsage(
+        repairMessages,
+        repairedOutput,
+        preparedContext.memory,
+      ),
     };
   }
 
@@ -147,6 +278,8 @@ Return only the complete updated MiniMesh scene JSON.`,
     scene: SceneDocument,
     entityId: string,
     instruction: string,
+    chatContext?: ChatContext,
+    textProvider?: MiniMaxTextProvider,
   ): Promise<GenerateSceneResult> {
     const trustedScene = this.ensureEntities(SceneDocumentSchema.parse(scene));
     const entity = trustedScene.entities?.find((item) => item.id === entityId);
@@ -161,19 +294,28 @@ Return only the complete updated MiniMesh scene JSON.`,
     const selectedObjects = trustedScene.objects.filter((object) =>
       selectedObjectIds.has(object.id),
     );
-    const rawOutput = await this.textProvider.complete({
-      messages: [
-        {
-          role: 'system',
-          name: 'MiniMeshEntityRefiner',
-          content: `Return only valid JSON. Refine only the selected MiniMesh entity.
+    const preparedContext = await this.prepareContext(
+      chatContext,
+      trustedScene,
+      entity,
+    );
+    const approvedReferenceMessage = await this.buildApprovedReferenceMessage(
+      instruction,
+    );
+    const messages: MiniMaxMessage[] = [
+      {
+        role: 'system',
+        name: 'MiniMeshEntityRefiner',
+        content: `Return only valid JSON. Refine only the selected MiniMesh entity.
 Allowed object types: box, sphere, cylinder, cone, torus, plane.
 Preserve every selected object's id and entityId. Never return code.`,
-        },
-        {
-          role: 'user',
-          name: 'user',
-          content: `Selected entity:
+      },
+      ...(preparedContext.contextMessage ? [preparedContext.contextMessage] : []),
+      ...(approvedReferenceMessage ? [approvedReferenceMessage] : []),
+      {
+        role: 'user',
+        name: 'user',
+        content: `Selected entity:
 ${JSON.stringify(entity, null, 2)}
 
 Selected objects:
@@ -187,12 +329,51 @@ Return this exact shape:
   "objects": [updated selected objects only],
   "warnings": []
 }`,
-        },
-      ],
-      maxCompletionTokens: 3200,
-      temperature: 0.2,
-    });
-    const refinement = this.parseEntityRefinement(rawOutput, selectedObjectIds);
+      },
+    ];
+    const completion = await this.completeWithUsage(
+      {
+        messages,
+        maxCompletionTokens: 3200,
+        temperature: 0.2,
+      },
+      textProvider,
+    );
+    const refinement = this.parseEntityRefinement(
+      completion.content,
+      selectedObjectIds,
+    );
+
+    if (refinement.objects.length === 0) {
+      const remainingObjects = trustedScene.objects.filter(
+        (object) => !selectedObjectIds.has(object.id),
+      );
+
+      if (remainingObjects.length === 0) {
+        throw new BadGatewayException({
+          message:
+            'Cannot remove the only entity in the scene. Use the Edit panel to replace or redesign the whole scene.',
+        });
+      }
+
+      const updatedScene = SceneDocumentSchema.parse({
+        ...trustedScene,
+        objects: remainingObjects,
+        entities: (trustedScene.entities ?? []).filter(
+          (e) => e.id !== entityId,
+        ),
+      });
+
+      return {
+        scene: this.applyVisualDefaults(instruction, updatedScene),
+        warnings: [
+          `Removed entity "${entity.name}" from the scene.`,
+          ...refinement.warnings,
+        ].slice(0, 8),
+        usage: this.createUsage(messages, completion, preparedContext.memory),
+      };
+    }
+
     const updatedById = new Map(
       refinement.objects.map((object) => [
         object.id,
@@ -208,62 +389,119 @@ Return this exact shape:
         (object) => updatedById.get(object.id) ?? object,
       ),
     });
+    const refinedScene = this.applyVisualDefaults(instruction, updatedScene);
+    const spatialErrors = this.validateSpatialLayout(refinedScene);
+
+    if (spatialErrors.length > 0) {
+      const repairedScene = await this.repairSpatialLayout(
+        instruction,
+        refinedScene,
+        spatialErrors,
+        preparedContext.memory,
+        textProvider,
+      );
+
+      return {
+        scene: repairedScene.scene,
+        warnings: ['Refined selected entity.', ...refinement.warnings].slice(
+          0,
+          8,
+        ),
+        usage: repairedScene.usage,
+      };
+    }
 
     return {
-      scene: this.applyVisualDefaults(instruction, updatedScene),
+      scene: refinedScene,
       warnings: ['Refined selected entity.', ...refinement.warnings].slice(
         0,
         8,
       ),
+      usage: this.createUsage(messages, completion, preparedContext.memory),
     };
   }
 
   private async generateSceneDirectly(
     prompt: string,
+    chatContext?: ChatContext,
+    textProvider?: MiniMaxTextProvider,
   ): Promise<GenerateSceneResult> {
-    const rawOutput = await this.textProvider.complete({
-      messages: [
-        {
-          role: 'system',
-          name: 'MiniMesh',
-          content: SCENE_SYSTEM_PROMPT,
-        },
-        {
-          role: 'user',
-          name: 'user',
-          content: createGenerationUserPrompt(prompt),
-        },
-      ],
-      maxCompletionTokens: 5000,
-      temperature: 0.25,
-    });
+    const preparedContext = await this.prepareContext(chatContext);
+    const approvedReferenceMessage =
+      await this.buildApprovedReferenceMessage(prompt);
+    const messages: MiniMaxMessage[] = [
+      {
+        role: 'system',
+        name: 'MiniMesh',
+        content: SCENE_SYSTEM_PROMPT,
+      },
+      ...(preparedContext.contextMessage ? [preparedContext.contextMessage] : []),
+      ...(approvedReferenceMessage ? [approvedReferenceMessage] : []),
+      {
+        role: 'user',
+        name: 'user',
+        content: createGenerationUserPrompt(prompt),
+      },
+    ];
+    const completion = await this.completeWithUsage(
+      {
+        messages,
+        maxCompletionTokens: 5000,
+        temperature: 0.25,
+      },
+      textProvider,
+    );
 
-    const firstAttempt = this.parseAndValidate(rawOutput);
+    const firstAttempt = this.parseAndValidate(completion.content);
 
     if (firstAttempt.scene) {
+      const scene = this.applyVisualDefaults(prompt, firstAttempt.scene);
+      const spatialErrors = this.validateSpatialLayout(scene);
+
+      if (spatialErrors.length > 0) {
+        const repairedScene = await this.repairSpatialLayout(
+          prompt,
+          scene,
+          spatialErrors,
+          preparedContext.memory,
+          textProvider,
+        );
+
+        return {
+          scene: repairedScene.scene,
+          warnings: [],
+          usage: repairedScene.usage,
+        };
+      }
+
       return {
-        scene: this.applyVisualDefaults(prompt, firstAttempt.scene),
+        scene,
         warnings: [],
+        usage: this.createUsage(messages, completion, preparedContext.memory),
       };
     }
 
-    const repairedOutput = await this.textProvider.complete({
-      messages: [
-        {
-          role: 'system',
-          name: 'MiniMesh',
-          content: SCENE_SYSTEM_PROMPT,
-        },
-        {
-          role: 'user',
-          name: 'user',
-          content: createRepairPrompt(rawOutput, firstAttempt.errors),
-        },
-      ],
-      temperature: 0.2,
-    });
+    const repairMessages: MiniMaxMessage[] = [
+      {
+        role: 'system',
+        name: 'MiniMesh',
+        content: SCENE_SYSTEM_PROMPT,
+      },
+      {
+        role: 'user',
+        name: 'user',
+        content: createRepairPrompt(completion.content, firstAttempt.errors),
+      },
+    ];
+    const repairedOutput = await this.completeWithUsage(
+      {
+        messages: repairMessages,
+        temperature: 0.2,
+      },
+      textProvider,
+    );
 
-    const repairAttempt = this.parseAndValidate(repairedOutput);
+    const repairAttempt = this.parseAndValidate(repairedOutput.content);
 
     if (!repairAttempt.scene) {
       throw new BadGatewayException({
@@ -272,9 +510,33 @@ Return this exact shape:
       });
     }
 
+    const scene = this.applyVisualDefaults(prompt, repairAttempt.scene);
+    const spatialErrors = this.validateSpatialLayout(scene);
+
+    if (spatialErrors.length > 0) {
+      const repairedScene = await this.repairSpatialLayout(
+        prompt,
+        scene,
+        spatialErrors,
+        preparedContext.memory,
+        textProvider,
+      );
+
+      return {
+        scene: repairedScene.scene,
+        warnings: ['Initial MiniMax output was repaired before validation.'],
+        usage: repairedScene.usage,
+      };
+    }
+
     return {
-      scene: this.applyVisualDefaults(prompt, repairAttempt.scene),
+      scene,
       warnings: ['Initial MiniMax output was repaired before validation.'],
+      usage: this.createUsage(
+        repairMessages,
+        repairedOutput,
+        preparedContext.memory,
+      ),
     };
   }
 
@@ -313,14 +575,204 @@ Return this exact shape:
       }
       const litScene =
         this.lightingAgentService?.enhanceScene(prompt, plan, scene) ?? scene;
+      const completedScene = this.applyDefaults(litScene);
+
+      if (this.validateSpatialLayout(completedScene).length > 0) {
+        return undefined;
+      }
 
       return {
-        scene: this.applyDefaults(litScene),
+        scene: completedScene,
         warnings: ['Generated with template-assisted multi-part pipeline.'],
       };
     } catch {
       return undefined;
     }
+  }
+
+  private async prepareContext(
+    chatContext?: ChatContext,
+    scene?: SceneDocument,
+    selectedEntity?: SceneEntity,
+  ): Promise<PreparedContext> {
+    const compacted =
+      this.contextCompactionService && chatContext
+        ? await this.contextCompactionService.compactIfNeeded(
+            chatContext,
+            scene,
+            selectedEntity,
+          )
+        : {
+            context: chatContext,
+            didCompact: false,
+            compactSummary: chatContext?.compactSummary ?? null,
+            compactedAt: null,
+          };
+    const builtContext = this.contextBuilderService?.buildContextMessage(
+      compacted.context,
+      scene,
+      selectedEntity,
+    );
+
+    return {
+      contextMessage: builtContext?.contextMessage,
+      memory: {
+        compactSummary: compacted.compactSummary,
+        compactedAt: compacted.compactedAt,
+        didCompact: compacted.didCompact,
+      },
+    };
+  }
+
+  private async buildApprovedReferenceMessage(
+    query: string,
+  ): Promise<MiniMaxMessage | undefined> {
+    if (!this.templatesService) {
+      return undefined;
+    }
+
+    const references = await this.templatesService.searchApprovedReferences(
+      query,
+      3,
+    );
+
+    if (references.length === 0) {
+      return undefined;
+    }
+
+    return {
+      role: 'system',
+      name: 'ApprovedMiniMeshReferences',
+      content: `Use these approved MiniMesh references as style and structure examples when relevant. Do not copy ids directly if that would create duplicates. Keep the user's request more important than references.
+${JSON.stringify(
+  references.map((reference) => ({
+    name: reference.name,
+    type: reference.referenceType,
+    category: reference.category,
+    description: reference.description,
+    tags: reference.tags,
+    fragment: reference.fragment,
+    scene: reference.scene
+      ? {
+          sceneName: reference.scene.sceneName,
+          description: reference.scene.description,
+          objects: reference.scene.objects.slice(0, 12),
+          lights: reference.scene.lights.slice(0, 2),
+        }
+      : undefined,
+  })),
+  null,
+  2,
+)}`,
+    };
+  }
+
+  private async completeWithUsage(
+    request: MiniMaxChatRequest,
+    textProvider: MiniMaxTextProvider = this.textProvider,
+  ): Promise<MiniMaxCompletion> {
+    if (textProvider.completeWithUsage) {
+      return textProvider.completeWithUsage(request);
+    }
+
+    return {
+      content: await textProvider.complete(request),
+    };
+  }
+
+  private createUsage(
+    messages: MiniMaxMessage[],
+    completion: MiniMaxCompletion,
+    memory?: GenerationUsage['memory'],
+  ): GenerationUsage | undefined {
+    if (!this.tokenUsageService) {
+      return memory ? { memory } : undefined;
+    }
+
+    return {
+      ...this.tokenUsageService.createUsage(
+        messages,
+        completion.content,
+        completion.usage,
+      ),
+      memory,
+    };
+  }
+
+  private async repairSpatialLayout(
+    prompt: string,
+    scene: SceneDocument,
+    validationErrors: string[],
+    memory?: GenerationUsage['memory'],
+    textProvider?: MiniMaxTextProvider,
+  ): Promise<{ scene: SceneDocument; usage?: GenerationUsage }> {
+    const repairMessages: MiniMaxMessage[] = [
+      {
+        role: 'system',
+        name: 'MiniMeshSpatialValidator',
+        content: SCENE_SYSTEM_PROMPT,
+      },
+      {
+        role: 'user',
+        name: 'user',
+        content: createSpatialRepairPrompt(scene, validationErrors),
+      },
+    ];
+    const repairedOutput = await this.completeWithUsage(
+      {
+        messages: repairMessages,
+        maxCompletionTokens: 5200,
+        temperature: 0.15,
+      },
+      textProvider,
+    );
+    const repairAttempt = this.parseAndValidate(repairedOutput.content);
+
+    if (!repairAttempt.scene) {
+      throw new BadGatewayException({
+        message: 'MiniMax returned scene JSON that could not be spatially repaired.',
+        errors: repairAttempt.errors,
+      });
+    }
+
+    const repairedScene = this.applyVisualDefaults(prompt, repairAttempt.scene);
+    const remainingErrors = this.validateSpatialLayout(repairedScene);
+
+    if (remainingErrors.length > 0) {
+      throw new BadGatewayException({
+        message: 'MiniMax returned scene JSON with overlapping objects.',
+        errors: remainingErrors,
+      });
+    }
+
+    return {
+      scene: repairedScene,
+      usage: this.createUsage(repairMessages, repairedOutput, memory),
+    };
+  }
+
+  private withEstimatedUsage(
+    prompt: string,
+    result: GenerateSceneResult,
+  ): GenerateSceneResult {
+    if (!this.tokenUsageService) {
+      return result;
+    }
+
+    const messages: MiniMaxMessage[] = [
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ];
+
+    return {
+      ...result,
+      usage: this.tokenUsageService.createUsage(
+        messages,
+        JSON.stringify(result.scene),
+      ),
+    };
   }
 
   parseAndValidate(rawOutput: string): ParsedSceneAttempt {
@@ -371,12 +823,16 @@ Return this exact shape:
 
   private applyDefaults(scene: SceneDocument): SceneDocument {
     const sceneWithEntities = this.ensureEntities(scene);
+    const sceneWithStablePlanes = this.stabilizeSupportPlanes(sceneWithEntities);
+    const stableScene =
+      this.scaleAgentService?.enhance(sceneWithStablePlanes) ??
+      sceneWithStablePlanes;
 
     return {
-      ...sceneWithEntities,
+      ...stableScene,
       lights:
-        sceneWithEntities.lights.length > 0
-          ? sceneWithEntities.lights
+        stableScene.lights.length > 0
+          ? stableScene.lights
           : FALLBACK_LIGHTS,
     };
   }
@@ -391,6 +847,109 @@ Return this exact shape:
       this.lightingAgentService?.enhanceIfNeeded(prompt, sceneWithLights) ??
       sceneWithLights
     );
+  }
+
+  private stabilizeSupportPlanes(scene: SceneDocument): SceneDocument {
+    return SceneDocumentSchema.parse({
+      ...scene,
+      objects: scene.objects.map((object) => {
+        if (!this.isFlatSupportPlane(object, scene.entities ?? [])) {
+          return object;
+        }
+
+        return {
+          ...object,
+          position: [object.position[0], 0, object.position[2]],
+          rotation: [-1.57, 0, 0],
+        };
+      }),
+    });
+  }
+
+  private isFlatSupportPlane(
+    object: SceneObject,
+    entities: SceneEntity[],
+  ): boolean {
+    if (object.type !== 'plane') {
+      return false;
+    }
+
+    const entity = entities.find((item) => item.id === object.entityId);
+    const text = `${object.id} ${object.name} ${object.role ?? ''} ${entity?.name ?? ''} ${entity?.description ?? ''} ${(entity?.tags ?? []).join(' ')}`.toLowerCase();
+
+    if (
+      this.hasAny(text, [
+        'billboard',
+        'screen',
+        'sign',
+        'panel',
+        'window',
+        'poster',
+        'hologram',
+      ])
+    ) {
+      return false;
+    }
+
+    const supportNamed = this.hasAny(text, [
+      'ground',
+      'floor',
+      'field',
+      'surface',
+      'road',
+      'street',
+      'platform',
+      'terrain',
+      'pitch',
+      'base',
+    ]);
+    const largePlane = Math.max(...object.scale) >= 5;
+
+    return supportNamed || largePlane;
+  }
+
+  private validateSpatialLayout(scene: SceneDocument): string[] {
+    const byPosition = new Map<string, SceneObject>();
+    const errors: string[] = [];
+
+    for (const object of scene.objects) {
+      if (this.shouldIgnoreSpatialOverlap(object, scene.entities ?? [])) {
+        continue;
+      }
+
+      const key = this.positionKey(object.position);
+      const existing = byPosition.get(key);
+
+      if (!existing) {
+        byPosition.set(key, object);
+        continue;
+      }
+
+      errors.push(
+        `Objects "${existing.id}" and "${object.id}" share position [${object.position.join(', ')}]. Offset one so both remain visible.`,
+      );
+
+      if (errors.length >= 8) {
+        break;
+      }
+    }
+
+    return errors;
+  }
+
+  private shouldIgnoreSpatialOverlap(
+    object: SceneObject,
+    entities: SceneEntity[],
+  ): boolean {
+    if (this.isFlatSupportPlane(object, entities)) {
+      return true;
+    }
+
+    return object.type === 'plane' && Math.min(...object.scale) <= 0.05;
+  }
+
+  private positionKey(position: [number, number, number]): string {
+    return position.map((value) => value.toFixed(2)).join('|');
   }
 
   private normalizeSceneDocument(value: unknown): unknown {
@@ -501,12 +1060,109 @@ Return this exact shape:
     };
   }
 
+  private detectCricketWicketAmbiguity(
+    prompt: string,
+  ): GenerationClarificationResult | undefined {
+    const normalizedPrompt = prompt.toLowerCase();
+
+    if (
+      !/\bcricket\b/.test(normalizedPrompt) ||
+      !/\bwickets?\b/.test(normalizedPrompt)
+    ) {
+      return undefined;
+    }
+
+    if (
+      /\b(full|complete)\s+wicket\s+sets?\b/.test(normalizedPrompt) ||
+      /\bsets?\s+of\s+wickets?\b/.test(normalizedPrompt) ||
+      /\bstumps?\b/.test(normalizedPrompt)
+    ) {
+      return undefined;
+    }
+
+    const countMatch = normalizedPrompt.match(
+      /\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+wickets?\b/,
+    );
+
+    if (!countMatch) {
+      return undefined;
+    }
+
+    const count = this.parseCountToken(countMatch[1]);
+
+    if (!count || count < 2) {
+      return undefined;
+    }
+
+    const fullSetPrompt = this.replaceFirstWicketCount(
+      prompt,
+      `${count} full cricket wicket sets (${count * 3} stumps total)`,
+    );
+    const stumpPrompt = this.replaceFirstWicketCount(
+      prompt,
+      `${count} cricket stumps forming one wicket`,
+    );
+
+    return {
+      status: 'needs_clarification',
+      question: `When you say ${count} wickets, do you mean ${count} full wicket sets or ${count} stumps forming one wicket?`,
+      options: [
+        {
+          id: 'stumps-in-one-wicket',
+          label: `${count} stumps forming one wicket`,
+          resolvedPrompt: stumpPrompt,
+        },
+        {
+          id: 'full-wicket-sets',
+          label: `${count} full wicket sets (${count * 3} stumps total)`,
+          resolvedPrompt: fullSetPrompt,
+        },
+        {
+          id: 'manual-clarification',
+          label: 'I will clarify manually',
+          resolvedPrompt: prompt,
+        },
+      ],
+    };
+  }
+
+  private parseCountToken(value: string): number | null {
+    const number = Number(value);
+
+    if (Number.isInteger(number)) {
+      return number;
+    }
+
+    const words: Record<string, number> = {
+      one: 1,
+      two: 2,
+      three: 3,
+      four: 4,
+      five: 5,
+      six: 6,
+      seven: 7,
+      eight: 8,
+      nine: 9,
+      ten: 10,
+    };
+
+    return words[value] ?? null;
+  }
+
+  private replaceFirstWicketCount(prompt: string, replacement: string): string {
+    return prompt.replace(
+      /\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+wickets?\b/i,
+      replacement,
+    );
+  }
+
   private parseEntityRefinement(
     rawOutput: string,
     allowedObjectIds: Set<string>,
   ): z.infer<typeof EntityRefinementOutputSchema> {
     try {
-      const parsed = JSON.parse(this.extractJsonObject(rawOutput)) as unknown;
+      const extracted = this.extractJsonObject(rawOutput);
+      const parsed = JSON.parse(extracted) as unknown;
       const refinement = EntityRefinementOutputSchema.parse(parsed);
       const invalidObject = refinement.objects.find(
         (object) => !allowedObjectIds.has(object.id),
@@ -572,6 +1228,7 @@ Return this exact shape:
 
   private normalizeObjectType(type: string, name: string): SceneObject['type'] {
     const text = `${type} ${name}`.toLowerCase();
+    const sourceType = type.toLowerCase();
 
     if (
       text.includes('road') ||
@@ -619,6 +1276,14 @@ Return this exact shape:
       text.includes('screen')
     ) {
       return 'plane';
+    }
+
+    if (
+      ['box', 'sphere', 'cylinder', 'cone', 'torus', 'plane'].includes(
+        sourceType,
+      )
+    ) {
+      return sourceType as SceneObject['type'];
     }
 
     return 'box';
@@ -744,6 +1409,10 @@ Return this exact shape:
 
   private toStringValue(value: unknown, fallback: string): string {
     return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+  }
+
+  private hasAny(value: string, needles: string[]): boolean {
+    return needles.some((needle) => value.includes(needle));
   }
 
   private isRecord(value: unknown): value is Record<string, unknown> {

@@ -8,6 +8,7 @@ interface SceneListPanelProps {
   scenes: SavedScene[];
   onDeleteScene: (sceneId: string) => void;
   onLoadScene: (scene: SavedScene) => void;
+  onNewScene: () => void;
   onRefresh: () => void;
 }
 
@@ -23,11 +24,20 @@ export function SceneListPanel({
   scenes,
   onDeleteScene,
   onLoadScene,
+  onNewScene,
   onRefresh,
 }: SceneListPanelProps) {
   return (
     <section className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 items-center justify-end border-b border-ui px-3 py-2">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-ui px-3 py-2">
+        <button
+          className="rounded-md border border-accent bg-accent px-2.5 py-1 text-xs font-semibold text-accent-contrast transition hover:bg-accent-strong disabled:opacity-50"
+          type="button"
+          onClick={onNewScene}
+          disabled={isBusy}
+        >
+          New scene
+        </button>
         <button
           className="rounded-md border border-ui px-2.5 py-1 text-xs font-medium text-secondary transition hover:border-accent hover:text-primary disabled:opacity-50"
           type="button"

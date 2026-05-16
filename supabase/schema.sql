@@ -55,6 +55,16 @@ create table if not exists object_templates (
   updated_at timestamptz default now()
 );
 
+alter table object_templates
+  add column if not exists reference_type text not null default 'fragment'
+    check (reference_type in ('fragment', 'scene')),
+  add column if not exists scene_json_document jsonb,
+  add column if not exists source_scene_id uuid references scenes(id) on delete set null,
+  add column if not exists source_version_id uuid references scene_versions(id) on delete set null,
+  add column if not exists source_user_id uuid references auth.users(id) on delete set null,
+  add column if not exists approved_by uuid references auth.users(id) on delete set null,
+  add column if not exists approved_at timestamptz;
+
 create table if not exists template_embeddings (
   template_id uuid primary key references object_templates(id) on delete cascade,
   embedding vector(384) not null,
@@ -64,6 +74,22 @@ create table if not exists template_embeddings (
 
 alter table scenes
   add column if not exists project_id uuid references projects(id) on delete cascade;
+
+alter table scenes
+  add column if not exists chat_context_summary text,
+  add column if not exists chat_context_updated_at timestamptz,
+  add column if not exists estimated_input_tokens integer,
+  add column if not exists estimated_output_tokens integer,
+  add column if not exists provider_input_tokens integer,
+  add column if not exists provider_output_tokens integer;
+
+alter table scene_versions
+  add column if not exists chat_context_summary text,
+  add column if not exists chat_context_updated_at timestamptz,
+  add column if not exists estimated_input_tokens integer,
+  add column if not exists estimated_output_tokens integer,
+  add column if not exists provider_input_tokens integer,
+  add column if not exists provider_output_tokens integer;
 
 alter table profiles enable row level security;
 alter table projects enable row level security;
@@ -184,7 +210,8 @@ create index if not exists template_embeddings_embedding_idx
   on template_embeddings using ivfflat (embedding vector_cosine_ops)
   with (lists = 16);
 
-create or replace function match_object_templates(
+drop function if exists match_object_templates(vector(384), integer);
+create function match_object_templates(
   query_embedding vector(384),
   match_count integer default 4
 )
@@ -195,6 +222,8 @@ returns table (
   description text,
   tags text[],
   scene_json_fragment jsonb,
+  reference_type text,
+  scene_json_document jsonb,
   is_public boolean,
   created_at timestamptz,
   updated_at timestamptz,
@@ -210,6 +239,8 @@ as $$
     object_templates.description,
     object_templates.tags,
     object_templates.scene_json_fragment,
+    object_templates.reference_type,
+    object_templates.scene_json_document,
     object_templates.is_public,
     object_templates.created_at,
     object_templates.updated_at,
