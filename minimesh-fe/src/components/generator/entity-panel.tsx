@@ -8,6 +8,7 @@ import type {
 } from "@/lib/scene/types";
 
 interface EntityPanelProps {
+  embedded?: boolean;
   entities: SceneEntity[];
   isBusy: boolean;
   isIsolating: boolean;
@@ -25,6 +26,7 @@ interface EntityPanelProps {
 const axes = ["x", "y", "z"] as const;
 
 export function EntityPanel({
+  embedded = false,
   entities,
   isBusy,
   isIsolating,
@@ -59,17 +61,31 @@ export function EntityPanel({
   }
 
   return (
-    <section className="border-t border-ui bg-panel">
-      <div className="border-b border-ui px-4 py-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
-          Entities
-        </p>
-        <h2 className="mt-1 text-base font-semibold text-primary">
-          Selectable models
-        </h2>
-      </div>
+    <section
+      className={
+        embedded
+          ? "flex h-full min-h-0 flex-col bg-panel"
+          : "border-t border-ui bg-panel"
+      }
+    >
+      {!embedded ? (
+        <div className="border-b border-ui px-4 py-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
+            Entities
+          </p>
+          <h2 className="mt-1 text-base font-semibold text-primary">
+            Selectable models
+          </h2>
+        </div>
+      ) : null}
 
-      <div className="grid max-h-64 gap-2 overflow-y-auto p-3">
+      <div
+        className={
+          embedded
+            ? "grid max-h-[38%] shrink-0 gap-2 overflow-y-auto border-b border-ui p-3"
+            : "grid max-h-64 gap-2 overflow-y-auto p-3"
+        }
+      >
         {entities.length === 0 ? (
           <p className="px-2 py-4 text-sm leading-6 text-secondary">
             Generate a scene to inspect entities.
@@ -97,8 +113,20 @@ export function EntityPanel({
         )}
       </div>
 
+      {embedded && !selectedEntity && entities.length > 0 ? (
+        <p className="flex flex-1 items-center justify-center px-4 py-8 text-center text-sm text-secondary">
+          Select an entity to inspect transforms and refine it.
+        </p>
+      ) : null}
+
       {selectedEntity ? (
-        <div className="grid gap-4 border-t border-ui p-4">
+        <div
+          className={`grid gap-4 p-4 ${
+            embedded
+              ? "min-h-0 flex-1 overflow-y-auto"
+              : "border-t border-ui"
+          }`}
+        >
           <div>
             <h3 className="text-sm font-semibold text-primary">
               {selectedEntity.name}

@@ -233,6 +233,82 @@ describe('GenerationService', () => {
     expect(lightingAgentService.enhanceScene).toHaveBeenCalledTimes(1);
   });
 
+  it('edits an existing scene with validated full scene JSON', async () => {
+    const provider = createProvider([
+      JSON.stringify({
+        sceneName: 'Edited Scene',
+        description: 'A revised scene.',
+        objects: [
+          {
+            id: 'object-1',
+            name: 'Tall red sphere',
+            type: 'sphere',
+            position: [0, 1.4, 0],
+            rotation: [0, 0, 0],
+            scale: [1, 1.8, 1],
+            material: { color: '#ef4444' },
+          },
+        ],
+        lights: [],
+        camera: { position: [5, 4, 7], target: [0, 0, 0], fov: 45 },
+      }),
+    ]);
+    const service = new GenerationService(provider);
+    const scene: SceneDocument = {
+      sceneName: 'Original Scene',
+      objects: [
+        {
+          id: 'object-1',
+          name: 'Red sphere',
+          type: 'sphere',
+          position: [0, 1, 0],
+          rotation: [0, 0, 0],
+          scale: [1, 1, 1],
+          material: { color: '#ef4444' },
+        },
+      ],
+      lights: [],
+      camera: { position: [5, 4, 7], target: [0, 0, 0], fov: 45 },
+    };
+
+    const result = await service.editScene(scene, 'make it taller');
+
+    expect(result.scene.sceneName).toBe('Edited Scene');
+    expect(result.scene.objects[0].name).toBe('Tall red sphere');
+    expect(result.scene.objects[0].scale).toEqual([1, 1.8, 1]);
+    expect(result.scene.entities?.[0].objectIds).toEqual(['object-1']);
+    expect(result.warnings).toEqual(['Edited scene from chat.']);
+    expect(provider.complete.mock.calls[0][0]).toMatchObject({
+      maxCompletionTokens: 5200,
+      temperature: 0.2,
+    });
+  });
+
+  it('throws when edited scene JSON cannot be repaired', async () => {
+    const provider = createProvider(['not json', '{"sceneName":"Broken"}']);
+    const service = new GenerationService(provider);
+    const scene: SceneDocument = {
+      sceneName: 'Original Scene',
+      objects: [
+        {
+          id: 'object-1',
+          name: 'Red sphere',
+          type: 'sphere',
+          position: [0, 1, 0],
+          rotation: [0, 0, 0],
+          scale: [1, 1, 1],
+          material: { color: '#ef4444' },
+        },
+      ],
+      lights: [],
+      camera: { position: [5, 4, 7], target: [0, 0, 0], fov: 45 },
+    };
+
+    await expect(service.editScene(scene, 'make it taller')).rejects.toBeInstanceOf(
+      BadGatewayException,
+    );
+  });
+
   it('refines only the selected entity objects', async () => {
     const provider = createProvider([
       JSON.stringify({

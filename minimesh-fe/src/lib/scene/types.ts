@@ -98,6 +98,17 @@ export interface GenerateSceneResponse {
   warnings: string[];
 }
 
+export interface SceneChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  status: "pending" | "applied" | "failed";
+  action?: "generate" | "edit-scene" | "refine-entity";
+  targetName?: string;
+  versionNumber?: number;
+  createdAt: string;
+}
+
 export interface SavedScene {
   id: string;
   projectId: string | null;

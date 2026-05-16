@@ -8,6 +8,10 @@ import {
 import { ZodError } from 'zod';
 import { SupabaseAuthGuard } from '../../common/auth/supabase-auth.guard';
 import {
+  EditSceneRequest,
+  EditSceneRequestSchema,
+} from './dto/edit-scene.dto';
+import {
   GenerateSceneRequest,
   GenerateSceneRequestSchema,
 } from './dto/generate-scene.dto';
@@ -29,6 +33,13 @@ export class GenerationController {
     return this.generationService.generateScene(request.prompt);
   }
 
+  @Post('scene-edit')
+  editScene(@Body() body: unknown): Promise<GenerateSceneResult> {
+    const request = this.validateEditRequest(body);
+
+    return this.generationService.editScene(request.scene, request.instruction);
+  }
+
   @Post('entity-refinement')
   refineEntity(@Body() body: unknown): Promise<GenerateSceneResult> {
     const request = this.validateRefinementRequest(body);
@@ -47,6 +58,21 @@ export class GenerationController {
       if (error instanceof ZodError) {
         throw new BadRequestException({
           message: 'Invalid generation request.',
+          errors: error.issues.map((issue) => issue.message),
+        });
+      }
+
+      throw error;
+    }
+  }
+
+  private validateEditRequest(body: unknown): EditSceneRequest {
+    try {
+      return EditSceneRequestSchema.parse(body);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          message: 'Invalid scene edit request.',
           errors: error.issues.map((issue) => issue.message),
         });
       }

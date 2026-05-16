@@ -154,3 +154,11 @@ textarea {
 .hover\:text-accent-strong:hover {
   color: var(--accent-strong);
 }
+
+.bg-foreground {
+  background: var(--foreground);
+}
+
+.text-panel {
+  color: var(--panel);
+}

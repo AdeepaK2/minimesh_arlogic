@@ -26,6 +26,29 @@ export async function generateScene(
   return (await response.json()) as GenerateSceneResponse;
 }
 
+export async function editScene(
+  scene: SceneDocument,
+  instruction: string,
+  accessToken: string,
+): Promise<GenerateSceneResponse> {
+  const response = await safeFetch(`${API_BASE_URL}/generation/scene-edit`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ scene, instruction }),
+  });
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response);
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as GenerateSceneResponse;
+}
+
 export async function refineEntity(
   scene: SceneDocument,
   entityId: string,
