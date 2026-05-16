@@ -1,6 +1,6 @@
 import { GeneratorWorkspace } from "@/components/generator/generator-workspace";
 
-export default async function DashboardProjectPage({
+export default async function DashboardProjectStudioPage({
   params,
 }: {
   params: Promise<{ projectId: string }>;

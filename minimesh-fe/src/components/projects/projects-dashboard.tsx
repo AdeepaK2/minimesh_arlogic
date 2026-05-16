@@ -169,7 +169,9 @@ export function ProjectsDashboard({ accessToken }: ProjectsDashboardProps) {
                 <button
                   className="block w-full text-left"
                   type="button"
-                  onClick={() => router.push(`/dashboard/projects/${project.id}`)}
+                  onClick={() =>
+                    router.push(`/dashboard/projects/${project.id}`)
+                  }
                 >
                   <h3 className="text-lg font-semibold text-primary">
                     {project.name}

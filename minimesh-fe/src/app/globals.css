@@ -159,6 +159,14 @@ textarea {
   color: var(--accent-strong);
 }
 
+.bg-foreground {
+  background: var(--foreground);
+}
+
+.text-panel {
+  color: var(--panel);
+}
+
 /* Landing page */
 .hero-glow {
   background:

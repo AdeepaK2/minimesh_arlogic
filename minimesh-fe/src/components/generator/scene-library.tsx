@@ -2,40 +2,34 @@
 
 import type { SavedScene, SceneVersion } from "@/lib/scene/types";
 
-interface SceneLibraryProps {
+interface SceneListPanelProps {
   activeSceneId: string | null;
   isBusy: boolean;
   scenes: SavedScene[];
-  versions: SceneVersion[];
   onDeleteScene: (sceneId: string) => void;
   onLoadScene: (scene: SavedScene) => void;
-  onLoadVersion: (version: SceneVersion) => void;
   onRefresh: () => void;
 }
 
-export function SceneLibrary({
+interface SceneVersionsPanelProps {
+  activeSceneId: string | null;
+  versions: SceneVersion[];
+  onLoadVersion: (version: SceneVersion) => void;
+}
+
+export function SceneListPanel({
   activeSceneId,
   isBusy,
   scenes,
-  versions,
   onDeleteScene,
   onLoadScene,
-  onLoadVersion,
   onRefresh,
-}: SceneLibraryProps) {
+}: SceneListPanelProps) {
   return (
-    <section className="flex min-h-0 flex-1 flex-col border-t border-ui bg-panel">
-      <div className="flex items-center justify-between gap-3 border-b border-ui px-4 py-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
-            Library
-          </p>
-          <h2 className="mt-1 text-base font-semibold text-primary">
-            Saved scenes
-          </h2>
-        </div>
+    <section className="flex h-full min-h-0 flex-col">
+      <div className="flex shrink-0 items-center justify-end border-b border-ui px-3 py-2">
         <button
-          className="border border-ui px-3 py-2 text-xs font-semibold text-secondary transition hover:border-accent hover:text-primary"
+          className="rounded-md border border-ui px-2.5 py-1 text-xs font-medium text-secondary transition hover:border-accent hover:text-primary disabled:opacity-50"
           type="button"
           onClick={onRefresh}
           disabled={isBusy}
@@ -44,17 +38,18 @@ export function SceneLibrary({
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3">
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {scenes.length === 0 ? (
           <p className="px-2 py-8 text-sm leading-6 text-secondary">
-            Saved scenes will appear here after you click Save.
+            Saved scenes appear here after you generate or save from the agent
+            panel.
           </p>
         ) : (
           <div className="grid gap-2">
             {scenes.map((scene) => (
               <div
                 key={scene.id}
-                className={`border p-3 transition ${
+                className={`rounded-lg border p-3 transition ${
                   activeSceneId === scene.id
                     ? "border-accent bg-accent-soft"
                     : "border-ui bg-field"
@@ -73,7 +68,7 @@ export function SceneLibrary({
                   </span>
                 </button>
                 <button
-                  className="mt-3 text-xs font-semibold text-danger transition hover:opacity-80"
+                  className="mt-3 text-xs font-medium text-danger transition hover:opacity-80 disabled:opacity-50"
                   type="button"
                   onClick={() => onDeleteScene(scene.id)}
                   disabled={isBusy}
@@ -85,35 +80,54 @@ export function SceneLibrary({
           </div>
         )}
       </div>
+    </section>
+  );
+}
 
-      <div className="max-h-60 border-t border-ui p-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
-          Versions
+export function SceneVersionsPanel({
+  activeSceneId,
+  versions,
+  onLoadVersion,
+}: SceneVersionsPanelProps) {
+  return (
+    <section className="flex h-full min-h-0 flex-col overflow-y-auto p-3">
+      {!activeSceneId ? (
+        <p className="px-2 py-8 text-sm leading-6 text-secondary">
+          Load a saved scene from the Scenes panel to browse its version history.
         </p>
-        {activeSceneId && versions.length > 0 ? (
-          <div className="mt-3 grid max-h-44 gap-2 overflow-y-auto">
-            {versions.map((version) => (
-              <button
-                key={version.id}
-                className="border border-ui bg-field px-3 py-2 text-left text-xs transition hover:border-accent"
-                type="button"
-                onClick={() => onLoadVersion(version)}
-              >
-                <span className="font-semibold text-primary">
-                  Version {version.versionNumber}
+      ) : versions.length === 0 ? (
+        <p className="px-2 py-8 text-sm leading-6 text-secondary">
+          No versions yet. Apply a change in the agent panel to create one.
+        </p>
+      ) : (
+        <div className="grid gap-2">
+          {versions.map((version) => (
+            <button
+              key={version.id}
+              className="rounded-lg border border-ui bg-field px-3 py-2.5 text-left transition hover:border-accent"
+              type="button"
+              onClick={() => onLoadVersion(version)}
+            >
+              <span className="text-sm font-semibold text-primary">
+                Version {version.versionNumber}
+              </span>
+              <span className="mt-1 block text-xs text-secondary">
+                {new Date(version.createdAt).toLocaleString()}
+              </span>
+              {version.prompt ? (
+                <span className="mt-2 line-clamp-3 block text-xs leading-5 text-secondary">
+                  {version.prompt}
                 </span>
-                <span className="mt-1 block text-secondary">
-                  {new Date(version.createdAt).toLocaleString()}
+              ) : null}
+              {version.warnings[0] ? (
+                <span className="mt-1 line-clamp-2 block text-xs text-muted">
+                  {version.warnings[0].replace(/^Assistant:\s*/i, "")}
                 </span>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <p className="mt-3 text-sm leading-6 text-secondary">
-            Load a saved scene to inspect versions.
-          </p>
-        )}
-      </div>
+              ) : null}
+            </button>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
