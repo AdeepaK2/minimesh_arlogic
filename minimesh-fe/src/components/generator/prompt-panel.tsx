@@ -7,25 +7,41 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import type { SceneChatMessage } from "@/lib/scene/types";
+import type {
+  GenerationClarificationOption,
+  GenerationJobStep,
+  GenerationUsage,
+  SceneChatMessage,
+} from "@/lib/scene/types";
 
 interface PromptPanelProps {
   embedded?: boolean;
   canExport: boolean;
+  canApproveScene: boolean;
   canSave: boolean;
   canSaveVersion: boolean;
   chatInput: string;
   error: string | null;
+  hasScene?: boolean;
   isBusy: boolean;
+  jobSteps?: GenerationJobStep[];
+  memorySummary?: string | null;
+  memoryUpdatedAt?: string | null;
   messages: SceneChatMessage[];
   projectName?: string | null;
+  selectedEntityCount?: number;
   sceneName?: string | null;
   selectedEntityName?: string | null;
   selectedEntityPartCount: number;
   userEmail?: string;
+  usage?: GenerationUsage | null;
   warnings: string[];
   onChatInputChange: (value: string) => void;
+  onApproveScene: () => void;
   onExport: () => void;
+  onClarificationSelect: (option: GenerationClarificationOption) => void;
+  onNewChat: () => void;
+  onNewScene: () => void;
   onSave: () => void;
   onSignOut: () => void;
   onSubmit: () => void;
@@ -36,20 +52,31 @@ type AgentMode = "generate" | "edit" | "refine";
 export function PromptPanel({
   embedded = false,
   canExport,
+  canApproveScene,
   canSave,
   canSaveVersion,
   chatInput,
   error,
+  hasScene,
   isBusy,
+  jobSteps = [],
+  memorySummary,
+  memoryUpdatedAt,
   messages,
   projectName,
+  selectedEntityCount = 0,
   sceneName,
   selectedEntityName,
   selectedEntityPartCount,
   userEmail,
+  usage,
   warnings,
   onChatInputChange,
+  onApproveScene,
   onExport,
+  onClarificationSelect,
+  onNewChat,
+  onNewScene,
   onSave,
   onSignOut,
   onSubmit,
@@ -57,14 +84,21 @@ export function PromptPanel({
   const scrollAnchorRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const mode = getMode(Boolean(sceneName), selectedEntityName);
+  const effectiveSelectedEntityCount =
+    selectedEntityCount || (selectedEntityName ? 1 : 0);
+  const hasLoadedScene = hasScene ?? Boolean(sceneName);
+  const mode = getMode(hasLoadedScene, effectiveSelectedEntityCount);
   const canSend = chatInput.trim().length >= 3 && !isBusy;
   const contextTarget =
     selectedEntityName ?? sceneName ?? "No scene yet";
   const contextMeta = selectedEntityName
-    ? `${selectedEntityPartCount} parts selected`
+    ? effectiveSelectedEntityCount > 1
+      ? `${effectiveSelectedEntityCount} entities selected`
+      : `${selectedEntityPartCount} parts selected`
     : sceneName
-      ? "Whole scene"
+      ? hasLoadedScene
+        ? "Whole scene"
+        : "New scene draft"
       : "Start with a prompt below";
 
   useEffect(() => {
@@ -113,8 +147,11 @@ export function PromptPanel({
       <ContextPills
         contextMeta={contextMeta}
         contextTarget={contextTarget}
+        memorySummary={memorySummary}
+        memoryUpdatedAt={memoryUpdatedAt}
         mode={mode}
         projectName={projectName}
+        usage={usage}
       />
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
@@ -123,9 +160,16 @@ export function PromptPanel({
         ) : (
           <div className="space-y-3">
             {messages.map((message) => (
-              <ChatMessage key={message.id} message={message} />
+              <ChatMessage
+                key={message.id}
+                isBusy={isBusy}
+                message={message}
+                onClarificationSelect={onClarificationSelect}
+              />
             ))}
-            {isBusy ? <WorkingIndicator mode={mode} /> : null}
+            {isBusy ? (
+              <WorkingIndicator jobSteps={jobSteps} mode={mode} />
+            ) : null}
           </div>
         )}
 
@@ -150,6 +194,7 @@ export function PromptPanel({
           chatInput={chatInput}
           isBusy={isBusy}
           mode={mode}
+          selectedEntityCount={effectiveSelectedEntityCount}
           textareaRef={textareaRef}
           onChange={onChatInputChange}
           onKeyDown={handleComposerKeyDown}
@@ -160,11 +205,15 @@ export function PromptPanel({
 
         <QuickActions
           canExport={canExport}
+          canApproveScene={canApproveScene}
           canSave={canSave}
           canSaveVersion={canSaveVersion}
           isBusy={isBusy}
           mode={mode}
+          onApproveScene={onApproveScene}
           onExport={onExport}
+          onNewChat={onNewChat}
+          onNewScene={onNewScene}
           onSave={onSave}
           onSubmit={onSubmit}
         />
@@ -177,29 +226,65 @@ function ContextPills({
   projectName,
   contextTarget,
   contextMeta,
+  memorySummary,
+  memoryUpdatedAt,
   mode,
+  usage,
 }: {
   projectName?: string | null;
   contextTarget: string;
   contextMeta: string;
+  memorySummary?: string | null;
+  memoryUpdatedAt?: string | null;
   mode: AgentMode;
+  usage?: GenerationUsage | null;
 }) {
+  const contextPercent = usage?.contextBudgetPercent;
+
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-ui px-4 py-2.5">
-      <ContextPill
-        icon={<FolderIcon />}
-        label={projectName ?? "Project"}
-        title={projectName ?? "Current project"}
-      />
-      <ContextPill
-        icon={<SceneIcon />}
-        label={contextTarget}
-        sublabel={contextMeta}
-        title={contextTarget}
-      />
-      <span className="ml-auto rounded-full border border-ui bg-field px-2.5 py-1 text-[11px] font-medium text-secondary">
-        {getModeLabel(mode)}
-      </span>
+    <div className="shrink-0 border-b border-ui px-4 py-2.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <ContextPill
+          icon={<FolderIcon />}
+          label={projectName ?? "Project"}
+          title={projectName ?? "Current project"}
+        />
+        <ContextPill
+          icon={<SceneIcon />}
+          label={contextTarget}
+          sublabel={contextMeta}
+          title={contextTarget}
+        />
+        <span className="ml-auto rounded-full border border-ui bg-field px-2.5 py-1 text-[11px] font-medium text-secondary">
+          {getModeLabel(mode)}
+        </span>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted">
+        <span className="rounded-full border border-ui bg-field px-2 py-1">
+          Context: {contextPercent ?? 0}%
+        </span>
+        <span className="rounded-full border border-ui bg-field px-2 py-1">
+          {usage?.usedProviderUsage ? "Provider usage" : "Estimated usage"}
+        </span>
+        {usage?.memory?.didCompact ? (
+          <span className="rounded-full border border-success bg-success-soft px-2 py-1 text-success">
+            Compacted
+          </span>
+        ) : null}
+        {memorySummary ? (
+          <span
+            className="min-w-0 flex-1 truncate rounded-full border border-ui bg-field px-2 py-1"
+            title={memorySummary}
+          >
+            Memory: {memorySummary}
+          </span>
+        ) : null}
+        {memoryUpdatedAt ? (
+          <span className="rounded-full border border-ui bg-field px-2 py-1">
+            {new Date(memoryUpdatedAt).toLocaleString()}
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -256,8 +341,18 @@ function EmptyState({ mode }: { mode: AgentMode }) {
   );
 }
 
-function ChatMessage({ message }: { message: SceneChatMessage }) {
+function ChatMessage({
+  isBusy,
+  message,
+  onClarificationSelect,
+}: {
+  isBusy: boolean;
+  message: SceneChatMessage;
+  onClarificationSelect: (option: GenerationClarificationOption) => void;
+}) {
   const isUser = message.role === "user";
+  const hasClarificationOptions =
+    !isUser && message.clarificationOptions && message.clarificationOptions.length > 0;
 
   return (
     <article
@@ -272,6 +367,21 @@ function ChatMessage({ message }: { message: SceneChatMessage }) {
       >
         <MessageMeta message={message} />
         <p className="whitespace-pre-wrap">{message.content}</p>
+        {hasClarificationOptions ? (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {message.clarificationOptions?.map((option) => (
+              <button
+                key={option.id}
+                className="rounded-full border border-ui bg-panel px-3 py-1.5 text-xs font-medium text-secondary transition hover:border-accent hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+                type="button"
+                disabled={isBusy}
+                onClick={() => onClarificationSelect(option)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
     </article>
   );
@@ -328,7 +438,13 @@ function StatusLabel({
   );
 }
 
-function WorkingIndicator({ mode }: { mode: AgentMode }) {
+function WorkingIndicator({
+  jobSteps,
+  mode,
+}: {
+  jobSteps: GenerationJobStep[];
+  mode: AgentMode;
+}) {
   const label: Record<AgentMode, string> = {
     generate: "Generating scene",
     edit: "Editing scene",
@@ -336,13 +452,51 @@ function WorkingIndicator({ mode }: { mode: AgentMode }) {
   };
 
   return (
-    <div className="flex items-start gap-2 rounded-2xl rounded-tl-md border border-ui bg-field px-3.5 py-2.5 text-sm text-secondary">
+    <div className="rounded-2xl rounded-tl-md border border-ui bg-field px-3.5 py-3 text-sm text-secondary">
       <span className="mt-0.5 inline-flex h-4 w-4 animate-spin rounded-full border-2 border-ui border-t-accent" />
       <span>
         {label[mode]}
+        {jobSteps.length > 0 ? ` - ${currentJobStepLabel(jobSteps)}` : ""}
+        {jobSteps.length > 0 ? (
+          <JobStepList steps={jobSteps} />
+        ) : null}
         <span className="animate-pulse">…</span>
       </span>
     </div>
+  );
+}
+
+function currentJobStepLabel(jobSteps: GenerationJobStep[]): string {
+  return (
+    jobSteps.find((step) => step.status === "running") ??
+    [...jobSteps].reverse().find((step) => step.status === "succeeded") ??
+    jobSteps[0]
+  ).label;
+}
+
+function JobStepList({ steps }: { steps: GenerationJobStep[] }) {
+  return (
+    <ol className="mt-3 space-y-1.5">
+      {steps.map((step) => (
+        <li key={step.id} className="flex items-center gap-2 text-xs">
+          <span
+            className={`h-1.5 w-1.5 rounded-full ${
+              step.status === "succeeded"
+                ? "bg-success"
+                : step.status === "running"
+                  ? "bg-accent"
+                  : step.status === "failed"
+                    ? "bg-danger"
+                    : "bg-muted"
+            }`}
+          />
+          <span className="text-secondary">{step.label}</span>
+          {step.detail ? (
+            <span className="min-w-0 truncate text-muted">{step.detail}</span>
+          ) : null}
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -351,6 +505,7 @@ function ComposerCard({
   isBusy,
   canSend,
   mode,
+  selectedEntityCount,
   sceneName,
   selectedEntityName,
   textareaRef,
@@ -362,6 +517,7 @@ function ComposerCard({
   isBusy: boolean;
   canSend: boolean;
   mode: AgentMode;
+  selectedEntityCount: number;
   sceneName?: string | null;
   selectedEntityName?: string | null;
   textareaRef: RefObject<HTMLTextAreaElement | null>;
@@ -381,6 +537,7 @@ function ComposerCard({
         onKeyDown={onKeyDown}
         placeholder={getComposerPlaceholder(
           Boolean(sceneName),
+          selectedEntityCount,
           selectedEntityName,
         )}
       />
@@ -412,20 +569,28 @@ function ComposerCard({
 
 function QuickActions({
   canExport,
+  canApproveScene,
   canSave,
   canSaveVersion,
   isBusy,
   mode,
+  onApproveScene,
   onExport,
+  onNewChat,
+  onNewScene,
   onSave,
   onSubmit,
 }: {
   canExport: boolean;
+  canApproveScene: boolean;
   canSave: boolean;
   canSaveVersion: boolean;
   isBusy: boolean;
   mode: AgentMode;
+  onApproveScene: () => void;
   onExport: () => void;
+  onNewChat: () => void;
+  onNewScene: () => void;
   onSave: () => void;
   onSubmit: () => void;
 }) {
@@ -436,6 +601,21 @@ function QuickActions({
         hint="↵"
         label={getQuickRunLabel(mode)}
         onClick={onSubmit}
+      />
+      <QuickPill
+        disabled={isBusy}
+        label="New scene"
+        onClick={onNewScene}
+      />
+      <QuickPill
+        disabled={isBusy}
+        label="New chat"
+        onClick={onNewChat}
+      />
+      <QuickPill
+        disabled={isBusy || !canApproveScene}
+        label="Approve scene"
+        onClick={onApproveScene}
       />
       <QuickPill
         disabled={isBusy || !canSave}
@@ -480,12 +660,12 @@ function QuickPill({
   );
 }
 
-function getMode(hasScene: boolean, selectedEntityName?: string | null): AgentMode {
+function getMode(hasScene: boolean, selectedEntityCount: number): AgentMode {
   if (!hasScene) {
     return "generate";
   }
 
-  return selectedEntityName ? "refine" : "edit";
+  return selectedEntityCount === 1 ? "refine" : "edit";
 }
 
 function getModeLabel(mode: AgentMode) {
@@ -514,10 +694,15 @@ function getQuickRunLabel(mode: AgentMode) {
 
 function getComposerPlaceholder(
   hasScene: boolean,
+  selectedEntityCount: number,
   selectedEntityName?: string | null,
 ) {
   if (!hasScene) {
     return "Plan and describe a 3D scene — style, lighting, objects…";
+  }
+
+  if (selectedEntityCount > 1) {
+    return "Edit the selected entities together — remove, recolor, align…";
   }
 
   if (selectedEntityName) {
@@ -534,6 +719,10 @@ function getActionLabel(action: NonNullable<SceneChatMessage["action"]>) {
 
   if (action === "refine-entity") {
     return "Refine";
+  }
+
+  if (action === "clarify") {
+    return "Clarify";
   }
 
   return "Edit";
@@ -652,4 +841,3 @@ function EditIcon() {
     </svg>
   );
 }
-

@@ -11,11 +11,12 @@ import { PrimitiveObject } from "./primitive-object";
 interface SceneViewportProps {
   isolatedEntityId?: string | null;
   selectedEntityId?: string | null;
+  selectedEntityIds?: string[];
   selectedEntityName?: string | null;
   scene: SceneDocument;
   onClearSelection?: () => void;
   onFocusSelected?: () => void;
-  onSelectEntity?: (entityId: string | null) => void;
+  onSelectEntity?: (entityId: string | null, additive?: boolean) => void;
   onToggleIsolate?: () => void;
   onViewPreset?: (preset: ViewPreset) => void;
 }
@@ -23,6 +24,7 @@ interface SceneViewportProps {
 export function SceneViewport({
   isolatedEntityId = null,
   selectedEntityId = null,
+  selectedEntityIds = [],
   selectedEntityName = null,
   scene,
   onClearSelection,
@@ -31,6 +33,7 @@ export function SceneViewport({
   onToggleIsolate,
   onViewPreset,
 }: SceneViewportProps) {
+  const selectedEntityIdSet = new Set(selectedEntityIds);
   const environment = scene.environment ?? {
     backgroundColor: "#0b0f14",
     fogColor: "#0b0f14",
@@ -44,6 +47,7 @@ export function SceneViewport({
       <ViewportToolbar
         hasSelection={Boolean(selectedEntityId)}
         isIsolating={Boolean(isolatedEntityId)}
+        selectedCount={selectedEntityIdSet.size}
         selectedEntityName={selectedEntityName}
         onClearSelection={onClearSelection}
         onFocusSelected={onFocusSelected}
@@ -94,9 +98,14 @@ export function SceneViewport({
               return (
                 <PrimitiveObject
                   key={object.id}
-                  isSelected={entityId === selectedEntityId}
+                  isSelected={selectedEntityIdSet.has(entityId)}
                   object={object}
-                  onSelect={() => onSelectEntity?.(entityId)}
+                  onSelect={(event) =>
+                    onSelectEntity?.(
+                      entityId,
+                      event.shiftKey || event.ctrlKey || event.metaKey,
+                    )
+                  }
                 />
               );
             })}
@@ -123,6 +132,7 @@ export function SceneViewport({
 function ViewportToolbar({
   hasSelection,
   isIsolating,
+  selectedCount,
   selectedEntityName,
   onClearSelection,
   onFocusSelected,
@@ -131,6 +141,7 @@ function ViewportToolbar({
 }: {
   hasSelection: boolean;
   isIsolating: boolean;
+  selectedCount: number;
   selectedEntityName: string | null;
   onClearSelection?: () => void;
   onFocusSelected?: () => void;
@@ -176,7 +187,7 @@ function ViewportToolbar({
       <div className="pointer-events-auto flex min-w-0 flex-wrap items-center justify-end gap-1">
         {selectedEntityName ? (
           <span className="max-w-56 truncate border border-cyan-300/70 bg-cyan-950/70 px-2.5 py-1.5 text-[11px] font-semibold text-cyan-100 shadow-sm backdrop-blur">
-            {selectedEntityName}
+            {selectedCount > 1 ? `${selectedCount} selected` : selectedEntityName}
           </span>
         ) : null}
         <button

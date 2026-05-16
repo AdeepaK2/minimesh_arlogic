@@ -11,7 +11,9 @@ interface StudioSidebarProps {
   library: ReactNode;
   versions: ReactNode;
   entities: ReactNode;
+  activeView?: StudioSidebarView;
   defaultView?: StudioSidebarView;
+  onViewChange?: (view: StudioSidebarView) => void;
 }
 
 const views: {
@@ -32,12 +34,16 @@ export function StudioSidebar({
   library,
   versions,
   entities,
+  activeView,
   defaultView = "agent",
+  onViewChange,
 }: StudioSidebarProps) {
-  const [activeView, setActiveView] =
+  const [internalActiveView, setInternalActiveView] =
     useState<StudioSidebarView>(defaultView);
+  const currentActiveView = activeView ?? internalActiveView;
 
-  const activeMeta = views.find((view) => view.id === activeView) ?? views[0];
+  const activeMeta =
+    views.find((view) => view.id === currentActiveView) ?? views[0];
 
   const panelContent: Record<StudioSidebarView, ReactNode> = {
     agent,
@@ -45,6 +51,11 @@ export function StudioSidebar({
     versions,
     entities,
   };
+
+  function handleViewChange(view: StudioSidebarView) {
+    setInternalActiveView(view);
+    onViewChange?.(view);
+  }
 
   return (
     <aside className="flex h-full w-[min(100%,420px)] min-w-[300px] max-w-[560px] resize-x overflow-hidden border-r border-ui bg-panel max-lg:h-80 max-lg:w-full max-lg:max-w-none max-lg:resize-none max-lg:flex-col max-lg:border-b max-lg:border-r-0">
@@ -56,9 +67,9 @@ export function StudioSidebar({
           {views.map((view) => (
             <ActivityButton
               key={view.id}
-              active={activeView === view.id}
+              active={currentActiveView === view.id}
               label={view.label}
-              onClick={() => setActiveView(view.id)}
+              onClick={() => handleViewChange(view.id)}
             >
               <SidebarIcon view={view.id} />
             </ActivityButton>
@@ -86,7 +97,7 @@ export function StudioSidebar({
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <PanelTitleBar title={activeMeta.title} />
         <div className="min-h-0 flex-1 overflow-hidden">
-          {panelContent[activeView]}
+          {panelContent[currentActiveView]}
         </div>
       </div>
     </aside>

@@ -3,7 +3,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { SupabaseAuthGuard } from '../../common/auth/supabase-auth.guard';
 import type { SceneDocument } from '../../schemas/scene.schema';
 import { GenerationController } from './generation.controller';
-import { GenerateSceneResult, GenerationService } from './generation.service';
+import {
+  GenerateSceneResult,
+  GenerationClarificationResult,
+  GenerationService,
+} from './generation.service';
+import { GenerationJobsService } from './generation-jobs.service';
+import type { GenerationJobResponse } from './generation-job.types';
 
 const controllerScene: SceneDocument = {
   sceneName: 'Controller Scene',
@@ -31,12 +37,26 @@ const controllerScene: SceneDocument = {
 describe('GenerationController', () => {
   let controller: GenerationController;
   let service: jest.Mocked<
-    Pick<GenerationService, 'generateScene' | 'editScene' | 'refineEntity'>
+    Pick<
+      GenerationService,
+      'clarifyScenePrompt' | 'generateScene' | 'editScene' | 'refineEntity'
+    >
   >;
+  let jobsService: jest.Mocked<Pick<GenerationJobsService, 'createJob' | 'getJob'>>;
 
   beforeEach(async () => {
     service = {
-      generateScene: jest.fn<Promise<GenerateSceneResult>, [string]>(() =>
+      clarifyScenePrompt: jest.fn<
+        GenerationClarificationResult,
+        Parameters<GenerationService['clarifyScenePrompt']>
+      >((prompt) => ({
+        status: 'ready',
+        resolvedPrompt: prompt,
+      })),
+      generateScene: jest.fn<
+        Promise<GenerateSceneResult>,
+        Parameters<GenerationService['generateScene']>
+      >(() =>
         Promise.resolve({
           scene: controllerScene,
           warnings: [],
@@ -44,7 +64,7 @@ describe('GenerationController', () => {
       ),
       editScene: jest.fn<
         Promise<GenerateSceneResult>,
-        [SceneDocument, string]
+        Parameters<GenerationService['editScene']>
       >(() =>
         Promise.resolve({
           scene: controllerScene,
@@ -53,13 +73,45 @@ describe('GenerationController', () => {
       ),
       refineEntity: jest.fn<
         Promise<GenerateSceneResult>,
-        [SceneDocument, string, string]
+        Parameters<GenerationService['refineEntity']>
       >(() =>
         Promise.resolve({
           scene: controllerScene,
           warnings: ['Refined selected entity.'],
         }),
       ),
+    };
+    jobsService = {
+      createJob: jest.fn<GenerationJobResponse, Parameters<GenerationJobsService['createJob']>>(
+        (request) => ({
+          jobId: 'job-1',
+          action: request.action,
+          status: 'queued',
+          steps: [],
+          createdAt: '2026-05-16T00:00:00.000Z',
+          updatedAt: '2026-05-16T00:00:00.000Z',
+        }),
+      ),
+      getJob: jest.fn<
+        GenerationJobResponse | undefined,
+        Parameters<GenerationJobsService['getJob']>
+      >(() => ({
+        jobId: 'job-1',
+        action: 'generate',
+        status: 'succeeded',
+        steps: [],
+        result: {
+          scene: controllerScene,
+          warnings: [],
+          review: {
+            selectedCandidate: 'candidateA',
+            candidateCount: 1,
+            scores: [],
+          },
+        },
+        createdAt: '2026-05-16T00:00:00.000Z',
+        updatedAt: '2026-05-16T00:00:00.000Z',
+      })),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -68,6 +120,10 @@ describe('GenerationController', () => {
         {
           provide: GenerationService,
           useValue: service,
+        },
+        {
+          provide: GenerationJobsService,
+          useValue: jobsService,
         },
       ],
     })
@@ -80,11 +136,32 @@ describe('GenerationController', () => {
     controller = module.get<GenerationController>(GenerationController);
   });
 
+  it('passes a valid prompt to the clarification service', () => {
+    const result = controller.clarifyScene({
+      prompt: 'generate a cricket bat with ball and 3 wickets',
+    });
+
+    expect(result).toEqual({
+      status: 'ready',
+      resolvedPrompt: 'generate a cricket bat with ball and 3 wickets',
+    });
+    expect(service.clarifyScenePrompt).toHaveBeenCalledWith(
+      'generate a cricket bat with ball and 3 wickets',
+    );
+  });
+
+  it('rejects an invalid clarification prompt', () => {
+    expect(() => controller.clarifyScene({ prompt: '' })).toThrow(
+      BadRequestException,
+    );
+  });
+
   it('passes a valid prompt to the generation service', async () => {
     await controller.generateScene({ prompt: 'make a small green box' });
 
     expect(service.generateScene).toHaveBeenCalledWith(
       'make a small green box',
+      undefined,
     );
   });
 
@@ -103,6 +180,7 @@ describe('GenerationController', () => {
     expect(service.editScene).toHaveBeenCalledWith(
       controllerScene,
       'add a glowing arch',
+      undefined,
     );
   });
 
@@ -126,6 +204,31 @@ describe('GenerationController', () => {
       controllerScene,
       'object-1',
       'make it taller',
+      undefined,
     );
+  });
+
+  it('creates a generation job', () => {
+    const result = controller.createJob({
+      action: 'generate',
+      prompt: 'make a small green box',
+    });
+
+    expect(result).toMatchObject({
+      jobId: 'job-1',
+      action: 'generate',
+      status: 'queued',
+    });
+    expect(jobsService.createJob).toHaveBeenCalledWith({
+      action: 'generate',
+      prompt: 'make a small green box',
+    });
+  });
+
+  it('returns a generation job status', () => {
+    const result = controller.getJob('job-1');
+
+    expect(result.status).toBe('succeeded');
+    expect(jobsService.getJob).toHaveBeenCalledWith('job-1');
   });
 });

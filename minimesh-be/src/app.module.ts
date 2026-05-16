@@ -6,6 +6,7 @@ import { SupabaseModule } from './database/supabase/supabase.module';
 import { GenerationModule } from './modules/generation/generation.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { ScenesModule } from './modules/scenes/scenes.module';
+import { TemplatesModule } from './modules/templates/templates.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { ScenesModule } from './modules/scenes/scenes.module';
     GenerationModule,
     ProjectsModule,
     ScenesModule,
+    TemplatesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

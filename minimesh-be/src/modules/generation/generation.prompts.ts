@@ -23,6 +23,9 @@ Schema rules:
 - Do not invent any other geometry, light, material, or animation types.
 - Do not use object types like car, building, sign, billboard, streetLight, road, pipe, crate, antenna, text, mesh, group, or glb. Convert them into the allowed primitive types.
 - Neon/glowing details are represented with bright material.color values and point lights. Do not add emissive, opacity, texture, font, text, or url fields.
+- Ground, floor, field, surface, road, and platform planes must be flat and horizontal with rotation [-1.57, 0, 0]. Do not create large tilted surface planes.
+- Separate visible objects must not share the same position coordinates unless one is a ground/support plane. Offset repeated parts like wickets, legs, wheels, posts, balls, and props so they are all visible.
+- Keep real-world scale relationships consistent across the whole scene and across edits. When adding cricket props, wicket stumps should be close to cricket bat length, and the ball should be much smaller than both.
 
 Use this exact shape:
 {
@@ -87,6 +90,21 @@ Invalid output:
 ${invalidOutput}
 
 Return only corrected JSON that follows the MiniMesh scene schema.`;
+}
+
+export function createSpatialRepairPrompt(
+  invalidScene: SceneDocument,
+  validationErrors: string[],
+): string {
+  return `Repair this MiniMesh Scene JSON so every visible object is clearly placed.
+
+Spatial validation errors:
+${validationErrors.map((error) => `- ${error}`).join('\n')}
+
+Scene JSON:
+${JSON.stringify(invalidScene, null, 2)}
+
+Move only the overlapping objects as needed. Preserve the user's intent, ids, object types, materials, entities, lights, and camera. Return only corrected JSON that follows the MiniMesh scene schema.`;
 }
 
 export const FALLBACK_LIGHTS: SceneDocument['lights'] = [
