@@ -73,6 +73,7 @@ const plans = [
     description: "Try MiniMesh with limited generations.",
     features: ["5 models / month", "GLB export", "Community support"],
     cta: "Get started",
+    ctaHref: "/signup",
     highlighted: false,
   },
   {
@@ -87,6 +88,7 @@ const plans = [
       "Priority generation",
     ],
     cta: "Start Pro trial",
+    ctaHref: "/signup",
     highlighted: true,
   },
   {
@@ -101,6 +103,7 @@ const plans = [
       "SSO & admin",
     ],
     cta: "Contact sales",
+    ctaHref: "#cta",
     highlighted: false,
   },
 ];
@@ -150,7 +153,7 @@ export function Hero() {
           </p>
           <div className="mt-10 flex flex-col gap-4 sm:flex-row">
             <Link
-              href="/dashboard"
+              href="/signup"
               className="inline-flex h-12 items-center justify-center rounded-full bg-gradient-to-r from-cyan-500 to-violet-500 px-8 text-sm font-semibold text-white shadow-lg shadow-cyan-500/25 transition hover:brightness-110"
             >
               Generate your first model
@@ -407,7 +410,7 @@ export function Pricing() {
               ))}
             </ul>
             <Link
-              href="#cta"
+              href={plan.ctaHref}
               className={`mt-8 flex h-11 items-center justify-center rounded-full text-sm font-semibold transition ${
                 plan.highlighted
                   ? "bg-gradient-to-r from-cyan-500 to-violet-500 text-white hover:brightness-110"
@@ -431,25 +434,22 @@ export function CtaBand() {
           Ready to build in 3D?
         </h2>
         <p className="mx-auto mt-4 max-w-lg text-zinc-400">
-          Join the waitlist and be first to generate models with MiniMesh AI.
+          Create a free account or log in to start generating models with MiniMesh AI.
         </p>
-        <form className="mx-auto mt-10 flex max-w-md flex-col gap-3 sm:flex-row" action="#">
-          <label className="sr-only" htmlFor="email">
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            placeholder="you@company.com"
-            className="h-12 flex-1 rounded-full border border-white/15 bg-black/40 px-5 text-sm text-white placeholder:text-zinc-500 focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
-          />
-          <button
-            type="submit"
-            className="h-12 shrink-0 rounded-full bg-gradient-to-r from-cyan-500 to-violet-500 px-8 text-sm font-semibold text-white transition hover:brightness-110"
+        <div className="mx-auto mt-10 flex max-w-md flex-col gap-3 sm:flex-row sm:items-center sm:justify-center">
+          <Link
+            href="/signup"
+            className="inline-flex h-12 items-center justify-center rounded-full bg-gradient-to-r from-cyan-500 to-violet-500 px-8 text-sm font-semibold text-white transition hover:brightness-110"
           >
-            Get early access
-          </button>
-        </form>
+            Sign up free
+          </Link>
+          <Link
+            href="/login"
+            className="inline-flex h-12 items-center justify-center rounded-full border border-white/15 px-8 text-sm font-medium text-zinc-200 transition hover:border-white/30 hover:bg-white/5"
+          >
+            Login
+          </Link>
+        </div>
       </div>
     </section>
   );

@@ -42,13 +42,13 @@ export function Navbar() {
             href="/login"
             className="rounded-full px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:text-white"
           >
-            Sign in
+            Login
           </Link>
           <Link
-            href="/dashboard"
+            href="/signup"
             className="rounded-full bg-gradient-to-r from-cyan-500 to-violet-500 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 transition hover:brightness-110"
           >
-            Start creating
+            Sign up
           </Link>
         </div>
 
@@ -92,14 +92,14 @@ export function Navbar() {
               className="py-2 text-center text-sm text-zinc-300"
               onClick={() => setOpen(false)}
             >
-              Sign in
+              Login
             </Link>
             <Link
-              href="/dashboard"
+              href="/signup"
               className="rounded-full bg-gradient-to-r from-cyan-500 to-violet-500 py-3 text-center text-sm font-semibold text-white"
               onClick={() => setOpen(false)}
             >
-              Start creating
+              Sign up
             </Link>
           </div>
         </div>
