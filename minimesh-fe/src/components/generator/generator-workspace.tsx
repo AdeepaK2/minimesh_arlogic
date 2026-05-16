@@ -546,7 +546,7 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
           <div className="flex items-center gap-3">
             <Link
               className="border border-ui px-3 py-2 text-xs font-semibold text-secondary transition hover:border-accent hover:text-primary"
-              href="/"
+              href="/dashboard"
             >
               Projects
             </Link>

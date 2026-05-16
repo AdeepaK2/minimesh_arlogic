@@ -39,13 +39,13 @@ export function Navbar() {
 
         <div className="hidden items-center gap-3 md:flex">
           <Link
-            href="#"
+            href="/dashboard"
             className="rounded-full px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:text-white"
           >
             Sign in
           </Link>
           <Link
-            href="#cta"
+            href="/dashboard"
             className="rounded-full bg-gradient-to-r from-cyan-500 to-violet-500 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 transition hover:brightness-110"
           >
             Start creating
@@ -87,11 +87,15 @@ export function Navbar() {
             ))}
           </ul>
           <div className="mt-4 flex flex-col gap-2 border-t border-white/10 pt-4">
-            <Link href="#" className="py-2 text-center text-sm text-zinc-300">
+            <Link
+              href="/dashboard"
+              className="py-2 text-center text-sm text-zinc-300"
+              onClick={() => setOpen(false)}
+            >
               Sign in
             </Link>
             <Link
-              href="#cta"
+              href="/dashboard"
               className="rounded-full bg-gradient-to-r from-cyan-500 to-violet-500 py-3 text-center text-sm font-semibold text-white"
               onClick={() => setOpen(false)}
             >

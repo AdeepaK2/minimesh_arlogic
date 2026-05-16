@@ -150,7 +150,7 @@ export function Hero() {
           </p>
           <div className="mt-10 flex flex-col gap-4 sm:flex-row">
             <Link
-              href="#cta"
+              href="/dashboard"
               className="inline-flex h-12 items-center justify-center rounded-full bg-gradient-to-r from-cyan-500 to-violet-500 px-8 text-sm font-semibold text-white shadow-lg shadow-cyan-500/25 transition hover:brightness-110"
             >
               Generate your first model
@@ -464,6 +464,9 @@ export function Footer() {
           <span className="font-semibold text-white">MiniMesh AI</span>
         </Link>
         <nav className="flex flex-wrap justify-center gap-6 text-sm text-zinc-500">
+          <Link href="/admin" className="hover:text-zinc-300">
+            Admin
+          </Link>
           <Link href="#" className="hover:text-zinc-300">
             Privacy
           </Link>
