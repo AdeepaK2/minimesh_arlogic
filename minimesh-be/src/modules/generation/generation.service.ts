@@ -20,12 +20,27 @@ import {
 } from '../../schemas/scene.schema';
 import type { SceneEntity, SceneObject } from '../../schemas/scene.schema';
 import {
+  LogicalGltfDocumentSchema,
+} from '../../schemas/logical-gltf.schema';
+import type {
+  BuiltGltfDocument,
+  LogicalGltfDocument,
+} from '../../schemas/logical-gltf.schema';
+import {
   createGenerationUserPrompt,
   createRepairPrompt,
   createSpatialRepairPrompt,
   FALLBACK_LIGHTS,
   SCENE_SYSTEM_PROMPT,
 } from './generation.prompts';
+import {
+  createGltfUserPrompt,
+  createGltfEditPrompt,
+  createGltfRepairPrompt,
+  FALLBACK_GLTF_LIGHTS,
+  GLTF_SYSTEM_PROMPT,
+} from './gltf-generation.prompts';
+import { GltfBuilderService } from './gltf-builder.service';
 import { ContextBuilderService } from './context-builder.service';
 import { ContextCompactionService } from './context-compaction.service';
 import type {
@@ -42,6 +57,10 @@ import { TokenUsageService } from './token-usage.service';
 
 export interface GenerateSceneResult {
   scene: SceneDocument;
+  /** Full glTF 2.0 JSON with binary buffers — used by GltfViewport for rendering. */
+  gltfDocument?: BuiltGltfDocument;
+  /** The logical (LLM-generated) glTF document stored in the DB. */
+  logicalGltf?: LogicalGltfDocument;
   warnings: string[];
   usage?: GenerationUsage;
 }
@@ -84,6 +103,8 @@ export class GenerationService {
     @Inject(MINIMAX_TEXT_PROVIDER)
     private readonly textProvider: MiniMaxTextProvider,
     @Optional()
+    private readonly gltfBuilderService?: GltfBuilderService,
+    @Optional()
     private readonly plannerService?: GenerationPlannerService,
     @Optional()
     private readonly partGenerationService?: PartGenerationService,
@@ -118,6 +139,262 @@ export class GenerationService {
 
     return this.generateSceneDirectly(prompt, chatContext, textProvider);
   }
+
+  // ─── glTF generation path ──────────────────────────────────────────────────
+
+  async generateGltfScene(
+    prompt: string,
+    chatContext?: ChatContext,
+    textProvider?: MiniMaxTextProvider,
+  ): Promise<GenerateSceneResult> {
+    const preparedContext = await this.prepareContext(chatContext);
+    const referenceMessage = await this.buildGltfReferenceMessage(prompt);
+    const messages: MiniMaxMessage[] = [
+      {
+        role: 'system',
+        name: 'MiniMeshGltfAgent',
+        content: GLTF_SYSTEM_PROMPT,
+      },
+      ...(preparedContext.contextMessage ? [preparedContext.contextMessage] : []),
+      ...(referenceMessage ? [referenceMessage] : []),
+      {
+        role: 'user',
+        name: 'user',
+        content: createGltfUserPrompt(prompt),
+      },
+    ];
+
+    const completion = await this.completeWithUsage(
+      { messages, maxCompletionTokens: 5000, temperature: 0.25 },
+      textProvider,
+    );
+
+    const firstAttempt = this.parseAndValidateGltf(completion.content);
+
+    if (firstAttempt.doc) {
+      const result = this.finalizeGltfResult(
+        prompt,
+        firstAttempt.doc,
+        [],
+        this.createUsage(messages, completion, preparedContext.memory),
+      );
+      return result;
+    }
+
+    // Repair pass
+    const repairMessages: MiniMaxMessage[] = [
+      { role: 'system', name: 'MiniMeshGltfAgent', content: GLTF_SYSTEM_PROMPT },
+      {
+        role: 'user',
+        name: 'user',
+        content: createGltfRepairPrompt(completion.content, firstAttempt.errors),
+      },
+    ];
+    const repairedOutput = await this.completeWithUsage(
+      { messages: repairMessages, temperature: 0.2 },
+      textProvider,
+    );
+    const repairAttempt = this.parseAndValidateGltf(repairedOutput.content);
+
+    if (!repairAttempt.doc) {
+      throw new BadGatewayException({
+        message: 'MiniMax returned Logical glTF JSON that could not be validated.',
+        errors: repairAttempt.errors,
+      });
+    }
+
+    return this.finalizeGltfResult(
+      prompt,
+      repairAttempt.doc,
+      ['Initial glTF output was repaired before validation.'],
+      this.createUsage(repairMessages, repairedOutput, preparedContext.memory),
+    );
+  }
+
+  async editGltfScene(
+    logicalGltf: LogicalGltfDocument,
+    instruction: string,
+    chatContext?: ChatContext,
+    textProvider?: MiniMaxTextProvider,
+  ): Promise<GenerateSceneResult> {
+    const preparedContext = await this.prepareContext(chatContext);
+    const referenceMessage = await this.buildGltfReferenceMessage(instruction);
+    const messages: MiniMaxMessage[] = [
+      { role: 'system', name: 'MiniMeshGltfEditor', content: GLTF_SYSTEM_PROMPT },
+      ...(preparedContext.contextMessage ? [preparedContext.contextMessage] : []),
+      ...(referenceMessage ? [referenceMessage] : []),
+      {
+        role: 'user',
+        name: 'user',
+        content: createGltfEditPrompt(logicalGltf, instruction),
+      },
+    ];
+    const completion = await this.completeWithUsage(
+      { messages, maxCompletionTokens: 5200, temperature: 0.2 },
+      textProvider,
+    );
+    const attempt = this.parseAndValidateGltf(completion.content);
+
+    if (attempt.doc) {
+      return this.finalizeGltfResult(
+        instruction,
+        attempt.doc,
+        ['Edited scene from chat.'],
+        this.createUsage(messages, completion, preparedContext.memory),
+      );
+    }
+
+    const repairMessages: MiniMaxMessage[] = [
+      { role: 'system', name: 'MiniMeshGltfEditor', content: GLTF_SYSTEM_PROMPT },
+      {
+        role: 'user',
+        name: 'user',
+        content: createGltfRepairPrompt(completion.content, attempt.errors),
+      },
+    ];
+    const repairedOutput = await this.completeWithUsage(
+      { messages: repairMessages, temperature: 0.2 },
+      textProvider,
+    );
+    const repairAttempt = this.parseAndValidateGltf(repairedOutput.content);
+
+    if (!repairAttempt.doc) {
+      throw new BadGatewayException({
+        message: 'MiniMax returned glTF edit JSON that could not be validated.',
+        errors: repairAttempt.errors,
+      });
+    }
+
+    return this.finalizeGltfResult(
+      instruction,
+      repairAttempt.doc,
+      ['Edited scene from chat.', 'Initial glTF edit output was repaired before validation.'],
+      this.createUsage(repairMessages, repairedOutput, preparedContext.memory),
+    );
+  }
+
+  private parseAndValidateGltf(rawOutput: string): { doc?: LogicalGltfDocument; errors: string[] } {
+    try {
+      const parsed = JSON.parse(this.extractJsonObject(rawOutput)) as unknown;
+      const doc = LogicalGltfDocumentSchema.parse(parsed);
+      return { doc, errors: [] };
+    } catch (error) {
+      return { errors: this.formatError(error) };
+    }
+  }
+
+  private finalizeGltfResult(
+    _prompt: string,
+    doc: LogicalGltfDocument,
+    warnings: string[],
+    usage?: GenerationUsage,
+  ): GenerateSceneResult {
+    // Ensure lights have fallbacks
+    const finalDoc: LogicalGltfDocument = {
+      ...doc,
+      lights: doc.lights.length > 0 ? doc.lights : FALLBACK_GLTF_LIGHTS,
+    };
+
+    // Build the full glTF document (with geometry buffers)
+    const gltfDocument = this.gltfBuilderService?.build(finalDoc);
+
+    // Synthesize a legacy SceneDocument for backward compat with persistence layer
+    const scene = this.synthesizeSceneDocument(finalDoc);
+
+    return { scene, gltfDocument, logicalGltf: finalDoc, warnings, usage };
+  }
+
+  /**
+   * Converts LogicalGltfDocument → SceneDocument so existing persistence,
+   * chat context, and entity panel code continues to work during transition.
+   *
+   * Entity IDs are set to match the logical glTF's node.entityId so that
+   * GltfViewport click selection (which returns userData.entityId) aligns
+   * with what refineEntity expects when looking up entities by id.
+   */
+  private synthesizeSceneDocument(doc: LogicalGltfDocument): SceneDocument {
+    const primNodes = doc.nodes.filter((n) => n.primitiveType !== undefined);
+
+    const objects = primNodes.map((n, i) => {
+      const mat = doc.materials[n.materialIndex ?? 0];
+      // Use the raw entityId from the logical glTF — the glTF extras also store
+      // the raw value, so GltfViewport returns the exact same string on click.
+      // Fall back to the sanitized object name only when entityId is absent.
+      const entityId = n.entityId ?? this.toSafeId(n.name, `obj-${i}`);
+
+      return {
+        id: this.toSafeId(n.name, `obj-${i}`),
+        name: n.name,
+        entityId,
+        type: n.primitiveType as SceneObject['type'],
+        position: (n.translation ?? [0, 0, 0]) as [number, number, number],
+        rotation: (n.eulerRotation ?? [0, 0, 0]) as [number, number, number],
+        scale: (n.scale ?? [1, 1, 1]) as [number, number, number],
+        material: {
+          color: mat?.baseColorHex ?? '#38bdf8',
+          metalness: mat?.metallicFactor ?? 0,
+          roughness: mat?.roughnessFactor ?? 0.55,
+          emissive: mat?.emissiveHex,
+          emissiveIntensity: mat?.emissiveIntensity,
+        },
+      };
+    });
+
+    // Build one SceneEntity per unique entityId so the entity panel and
+    // refineEntity can look up by id. The id matches node.entityId from the
+    // logical glTF, which is what GltfViewport returns on click.
+    const entityMap = new Map<string, { name: string; objectIds: string[] }>();
+    for (const obj of objects) {
+      const eid = obj.entityId;
+      if (!entityMap.has(eid)) {
+        entityMap.set(eid, { name: obj.name, objectIds: [] });
+      }
+      entityMap.get(eid)!.objectIds.push(obj.id);
+    }
+    const entities = [...entityMap.entries()].map(([id, { name, objectIds }]) => ({
+      id,
+      name,
+      objectIds,
+      tags: [],
+      transform: {
+        position: [0, 0, 0] as [number, number, number],
+        rotation: [0, 0, 0] as [number, number, number],
+        scale: [1, 1, 1] as [number, number, number],
+      },
+    }));
+
+    const lights = doc.lights.map((l, i) => ({
+      id: this.toSafeId(l.name, `light-${i}`),
+      type: l.type as SceneDocument['lights'][number]['type'],
+      color: l.colorHex ?? '#ffffff',
+      intensity: l.intensity ?? 1,
+      position: l.position,
+    }));
+
+    return SceneDocumentSchema.parse({
+      sceneName: doc.sceneName,
+      description: doc.description,
+      objects: objects.slice(0, 60),
+      entities: entities.slice(0, 60),
+      lights: lights.slice(0, 8),
+      camera: {
+        position: doc.camera.position,
+        target: doc.camera.target,
+        fov: doc.camera.fovDegrees,
+      },
+      environment: doc.environment
+        ? {
+            backgroundColor: doc.environment.backgroundColorHex,
+            fogColor: doc.environment.fogColorHex ?? doc.environment.backgroundColorHex,
+            fogNear: doc.environment.fogNear ?? 18,
+            fogFar: doc.environment.fogFar ?? 42,
+            exposure: 1,
+          }
+        : undefined,
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   clarifyScenePrompt(prompt: string): GenerationClarificationResult {
     const cricketWicketAmbiguity = this.detectCricketWicketAmbiguity(prompt);
@@ -664,6 +941,46 @@ ${JSON.stringify(
   null,
   2,
 )}`,
+    };
+  }
+
+  /**
+   * Retrieves approved scene references and formats them as an example-style
+   * system message for glTF generation. Summarizes scenes in Logical-glTF terms
+   * rather than raw SceneDocument JSON so the LLM can follow the pattern.
+   */
+  private async buildGltfReferenceMessage(
+    query: string,
+  ): Promise<MiniMaxMessage | undefined> {
+    if (!this.templatesService) return undefined;
+
+    const references = await this.templatesService.searchApprovedReferences(query, 3);
+    if (references.length === 0) return undefined;
+
+    const examples = references.map((ref) => {
+      const objects = ref.scene?.objects ?? ref.fragment?.objects ?? [];
+      const lights  = ref.scene?.lights  ?? ref.fragment?.lights  ?? [];
+      return {
+        name: ref.name,
+        category: ref.category,
+        description: ref.description,
+        tags: ref.tags,
+        // Summarize object structure in the logical-glTF vocabulary
+        sampleNodes: objects.slice(0, 10).map((o) => ({
+          name: o.name,
+          type: o.type,
+          color: o.material?.color,
+          entityId: (o as Record<string, unknown>).entityId ?? undefined,
+        })),
+        lightTypes: lights.map((l) => l.type),
+      };
+    });
+
+    return {
+      role: 'system',
+      name: 'ApprovedSceneReferences',
+      content: `The following approved scenes are style examples. Use them for object composition ideas, entity groupings, color palettes, and light setups. Do NOT copy ids or names verbatim.
+${JSON.stringify(examples, null, 2)}`,
     };
   }
 

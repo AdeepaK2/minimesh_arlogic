@@ -17,8 +17,37 @@ import {
   TorusGeometry,
 } from "three";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { SceneDocument, SceneObject } from "./types";
+import type { BuiltGltfDocument } from "./gltf-types";
 
+/**
+ * Export a BuiltGltfDocument directly to a .glb file.
+ * Since it is already valid glTF 2.0 JSON, we just load it via GLTFLoader
+ * and re-export as binary GLB.
+ */
+export async function exportGltfDocumentToGlb(
+  gltfDocument: BuiltGltfDocument,
+): Promise<void> {
+  const loader = new GLTFLoader();
+  const gltf = await loader.parseAsync(JSON.stringify(gltfDocument), "");
+  const exporter = new GLTFExporter();
+  const glb = await exporter.parseAsync(gltf.scene, { binary: true });
+  const blob = new Blob([glb as ArrayBuffer], { type: "model/gltf-binary" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const name = (gltfDocument.extras?.sceneName ?? "minimesh-scene");
+
+  link.href = url;
+  link.download = `${toFileSlug(name)}.glb`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Legacy export path using SceneDocument primitives.
+ * Used as fallback when gltfDocument is not available.
+ */
 export async function exportSceneToGlb(sceneDocument: SceneDocument) {
   const scene = buildThreeScene(sceneDocument);
   const exporter = new GLTFExporter();

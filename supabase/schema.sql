@@ -83,6 +83,12 @@ alter table scenes
   add column if not exists provider_input_tokens integer,
   add column if not exists provider_output_tokens integer;
 
+alter table scenes
+  add column if not exists latest_scene_gltf jsonb;
+
+alter table scene_versions
+  add column if not exists scene_gltf jsonb;
+
 alter table scene_versions
   add column if not exists chat_context_summary text,
   add column if not exists chat_context_updated_at timestamptz,

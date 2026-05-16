@@ -285,7 +285,7 @@ export class TemplatesService {
       return semanticMatches;
     }
 
-    return this.searchWithKeywords(query, limit);
+    return this.searchWithKeywords(query, limit, true);
   }
 
   async approveReference(
@@ -379,13 +379,24 @@ export class TemplatesService {
       const queryEmbedding =
         await this.embeddingsProvider.embedText(trimmedQuery);
 
-      return (await this.searchWithPgVector(queryEmbedding, limit))
+      const vectorMatches = (await this.searchWithPgVector(queryEmbedding, limit))
         .map((template) => this.asApprovedSearchResult(template))
         .filter(
-          (
-            template,
-          ): template is ApprovedReferenceSearchResult => Boolean(template),
+          (template): template is ApprovedReferenceSearchResult =>
+            Boolean(template),
         );
+
+      if (vectorMatches.length > 0) {
+        return vectorMatches;
+      }
+
+      // Fallback: keyword search across approved templates when the vector index
+      // is empty or returns no results (e.g. sparse early-stage database).
+      const keywordMatches = await this.searchWithKeywords(trimmedQuery, limit);
+      return keywordMatches
+        .filter((t) => t.score > 0)
+        .map((t) => this.asApprovedSearchResult(t))
+        .filter((t): t is ApprovedReferenceSearchResult => Boolean(t));
     }
 
     return this.listLatestApprovedReferences(limit);
@@ -418,13 +429,14 @@ export class TemplatesService {
   private async searchWithKeywords(
     query: string,
     limit: number,
+    fragmentOnly = false,
   ): Promise<TemplateSearchResult[]> {
     const client = this.supabaseService.getClient();
     const { data, error } = await client
       .from('object_templates')
       .select('*')
       .eq('is_public', true)
-      .limit(50);
+      .limit(80);
 
     if (error || !Array.isArray(data)) {
       return [];
@@ -435,7 +447,9 @@ export class TemplatesService {
     return data
       .map((row) => this.mapTemplateRow(row as TemplateRow))
       .filter((template): template is TemplateSearchResult => Boolean(template))
-      .filter((template) => template.referenceType === 'fragment')
+      .filter((template) =>
+        fragmentOnly ? template.referenceType === 'fragment' : true,
+      )
       .map((template) => ({
         ...template,
         score: this.keywordScore(queryTokens, template),

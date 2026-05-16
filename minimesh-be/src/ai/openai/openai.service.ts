@@ -41,7 +41,7 @@ export class OpenAIService implements MiniMaxTextProvider {
       this.configService.get<string>('OPENAI_BASE_URL'),
     );
     this.model =
-      this.configService.get<string>('OPENAI_SCENE_MODEL') ?? 'gpt-5.4-mini';
+      this.configService.get<string>('OPENAI_SCENE_MODEL') ?? 'gpt-5.4';
   }
 
   isConfigured(): boolean {
