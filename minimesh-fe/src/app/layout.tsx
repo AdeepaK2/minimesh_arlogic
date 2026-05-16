@@ -15,8 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MiniMesh",
-  description: "Prompt-to-3D scene generation workspace.",
+  title: "MiniMesh AI — Text to 3D Models",
+  description:
+    "Generate 3D models from text prompts. Export GLB and OBJ or embed interactive 3D on any website.",
 };
 
 export default function RootLayout({

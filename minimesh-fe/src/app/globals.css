@@ -47,6 +47,10 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -161,4 +165,66 @@ textarea {
 
 .text-panel {
   color: var(--panel);
+}
+
+/* Landing page */
+.hero-glow {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(34, 211, 238, 0.18), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 50%, rgba(167, 139, 250, 0.12), transparent);
+}
+
+.mesh-preview {
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+/* Admin portal */
+.admin-mesh-bg {
+  background-color: #0a0a0f;
+  background-image:
+    linear-gradient(rgba(34, 211, 238, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.03) 1px, transparent 1px),
+    radial-gradient(ellipse 70% 50% at 50% -10%, rgba(34, 211, 238, 0.12), transparent),
+    radial-gradient(ellipse 50% 40% at 100% 50%, rgba(167, 139, 250, 0.08), transparent);
+  background-size: 48px 48px, 48px 48px, 100% 100%, 100% 100%;
+}
+
+.admin-glass {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+}
+
+.admin-glow-border {
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.2),
+    0 0 24px -4px rgba(34, 211, 238, 0.15);
+}
+
+.admin-nav-active {
+  box-shadow: inset 3px 0 0 #22d3ee;
+}
+
+.admin-pulse {
+  animation: admin-pulse 2s ease-in-out infinite;
+}
+
+@keyframes admin-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.5);
+  }
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 0 6px rgba(34, 211, 238, 0);
+  }
 }
