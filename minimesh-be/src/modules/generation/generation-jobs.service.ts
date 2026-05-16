@@ -1,4 +1,4 @@
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { HttpException, Inject, Injectable, Optional } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import {
   MINIMAX_TEXT_PROVIDER,
@@ -70,6 +70,38 @@ export class GenerationJobsService {
     return job ? this.toResponse(job) : undefined;
   }
 
+  private describeCandidateError(error: unknown): string {
+    if (error instanceof HttpException) {
+      const body = error.getResponse();
+      if (typeof body === 'object' && body !== null && 'errors' in body) {
+        const errs = (body as { errors?: unknown }).errors;
+        if (Array.isArray(errs) && errs.length > 0) {
+          return errs.slice(0, 8).map(String).join('; ');
+        }
+      }
+      if (typeof body === 'object' && body !== null && 'message' in body) {
+        const msg = (body as { message: unknown }).message;
+        if (Array.isArray(msg)) {
+          return msg.map(String).join('; ');
+        }
+        if (typeof msg === 'string' && msg.trim().length > 0) {
+          return msg;
+        }
+      }
+      if (typeof body === 'string' && body.length > 0) {
+        return body;
+      }
+    }
+
+    return error instanceof Error ? error.message : 'Candidate generation failed.';
+  }
+
+  private looksLikeSchemaParseOrTruncation(issue: string): boolean {
+    return /\bunexpected token\b|unexpected end\b|unterminated|truncate|truncat|maximum.{0,80}(tokens|completion)|context.{0,20}limit|logical gltf|\[path\]|\bpath\b:.*:|received (nan|null|string|undefined|number).*expected|expected .{4,240}received|positive number|string did not match|too (few|many)|must contain|minimum \d+ element|maximum \d+ element|minimum \d+ items|maximum \d+ items|^\w[\w.]*\d*:/i.test(
+      issue,
+    );
+  }
+
   private async runJob(jobId: string): Promise<void> {
     const job = this.jobs.get(jobId);
 
@@ -101,22 +133,28 @@ export class GenerationJobsService {
 
         // Surface a clean, actionable message instead of a raw API error dump.
         const hasQuota = issues.some((i) =>
-          /429|quota|rate.?limit/i.test(i),
+          /\b429\b|quota|rate\s*limit|too many requests/i.test(i),
         );
-        const hasInvalid = issues.some((i) =>
-          /validate|invalid|JSON|schema/i.test(i),
+        /** Avoid matching every message that contains “JSON”; use schema/parse heuristics. */
+        const hasSchemaParse = issues.some((i) =>
+          this.looksLikeSchemaParseOrTruncation(i),
         );
 
         let message = 'Both AI agents failed to generate a valid scene.';
-        if (hasQuota && hasInvalid) {
+        if (hasQuota && hasSchemaParse) {
           message =
-            'One agent returned invalid JSON and the other hit an API rate limit. Please try again in a few seconds.';
+            'One agent hit a parsing/schema issue and the other hit an API rate limit. Try again shortly.';
         } else if (hasQuota) {
           message =
             'The AI API rate limit was reached. Please wait a moment and try again.';
-        } else if (hasInvalid) {
+        } else if (hasSchemaParse) {
+          const hint =
+            issues.length > 0
+              ? `${issues.slice(0, 2).join('; ')}. `
+              : '';
           message =
-            'Both agents returned scenes that failed validation. Try rephrasing your prompt with more detail.';
+            `${hint}` +
+            'We could not accept the AI output (often truncation on big scenes — try simplifying the prompt slightly or mentioning fewer objects).';
         } else if (issues.length > 0) {
           message = issues.join(' ');
         }
@@ -176,10 +214,7 @@ export class GenerationJobsService {
         } catch (error) {
           return {
             candidate,
-            error:
-              error instanceof Error
-                ? error.message
-                : 'Candidate generation failed.',
+            error: this.describeCandidateError(error),
           };
         }
       }),
