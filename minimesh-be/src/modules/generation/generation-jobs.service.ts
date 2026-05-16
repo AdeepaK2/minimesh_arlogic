@@ -97,12 +97,31 @@ export class GenerationJobsService {
       this.finishStep(job, 'review');
 
       if (!selected.result) {
-        const issues = scored.flatMap((candidate) => candidate.issues);
-        throw new Error(
-          issues.length > 0
-            ? issues.join(' ')
-            : 'No candidate scene could be generated.',
+        const issues = scored.flatMap((c) => c.issues).filter(Boolean);
+
+        // Surface a clean, actionable message instead of a raw API error dump.
+        const hasQuota = issues.some((i) =>
+          /429|quota|rate.?limit/i.test(i),
         );
+        const hasInvalid = issues.some((i) =>
+          /validate|invalid|JSON|schema/i.test(i),
+        );
+
+        let message = 'Both AI agents failed to generate a valid scene.';
+        if (hasQuota && hasInvalid) {
+          message =
+            'One agent returned invalid JSON and the other hit an API rate limit. Please try again in a few seconds.';
+        } else if (hasQuota) {
+          message =
+            'The AI API rate limit was reached. Please wait a moment and try again.';
+        } else if (hasInvalid) {
+          message =
+            'Both agents returned scenes that failed validation. Try rephrasing your prompt with more detail.';
+        } else if (issues.length > 0) {
+          message = issues.join(' ');
+        }
+
+        throw new Error(message);
       }
 
       this.startStep(job, 'final', 'Preparing final scene');

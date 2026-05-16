@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 
-export type StudioSidebarView = "agent" | "library" | "versions" | "entities";
+export type StudioSidebarView = "agent" | "library" | "versions" | "entities" | "lights";
 
 interface StudioSidebarProps {
   userEmail?: string;
@@ -11,6 +11,7 @@ interface StudioSidebarProps {
   library: ReactNode;
   versions: ReactNode;
   entities: ReactNode;
+  lights: ReactNode;
   activeView?: StudioSidebarView;
   defaultView?: StudioSidebarView;
   onViewChange?: (view: StudioSidebarView) => void;
@@ -25,6 +26,7 @@ const views: {
   { id: "library", label: "Scenes", title: "Saved scenes" },
   { id: "versions", label: "Versions", title: "Version history" },
   { id: "entities", label: "Entities", title: "Scene entities" },
+  { id: "lights", label: "Lights", title: "Scene lights" },
 ];
 
 export function StudioSidebar({
@@ -34,6 +36,7 @@ export function StudioSidebar({
   library,
   versions,
   entities,
+  lights,
   activeView,
   defaultView = "agent",
   onViewChange,
@@ -50,6 +53,7 @@ export function StudioSidebar({
     library,
     versions,
     entities,
+    lights,
   };
 
   function handleViewChange(view: StudioSidebarView) {
@@ -155,6 +159,8 @@ function SidebarIcon({ view }: { view: StudioSidebarView }) {
       return <HistoryIcon />;
     case "entities":
       return <LayersIcon />;
+    case "lights":
+      return <LightsIcon />;
     default:
       return <ChatIcon />;
   }
@@ -218,6 +224,20 @@ function SignOutIcon() {
     <svg aria-hidden className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24">
       <path
         d="M15 12H3m0 0l4-4m-4 4l4 4M9 5h6a2 2 0 012 2v10a2 2 0 01-2 2H9"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.5"
+      />
+    </svg>
+  );
+}
+
+function LightsIcon() {
+  return (
+    <svg aria-hidden className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24">
+      <path
+        d="M9 21h6M12 3a6 6 0 016 6c0 2.22-1.2 4.16-3 5.2V17H9v-2.8A6.001 6.001 0 0112 3z"
         stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"

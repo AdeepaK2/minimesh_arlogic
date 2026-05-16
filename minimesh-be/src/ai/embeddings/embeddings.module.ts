@@ -17,6 +17,8 @@ import type { EmbeddingsProvider } from './embeddings.types';
         hash: HashEmbeddingsService,
         openai: OpenAiEmbeddingsService,
       ): EmbeddingsProvider => {
+        // OpenAiEmbeddingsService already falls back to hash internally on quota
+        // errors, so it is always safe to prefer it when a key is configured.
         const hasKey = Boolean(config.get<string>('OPENAI_API_KEY'));
         return hasKey ? openai : hash;
       },

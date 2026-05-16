@@ -1,13 +1,15 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
-import { Grid, OrbitControls } from "@react-three/drei";
-import { Canvas } from "@react-three/fiber";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Grid, Html, OrbitControls, TransformControls } from "@react-three/drei";
+import { Canvas, useThree } from "@react-three/fiber";
 import { ACESFilmicToneMapping, MOUSE } from "three";
 import type { Group, Mesh, MeshStandardMaterial, Object3D } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import type { BuiltGltfDocument } from "@/lib/scene/gltf-types";
+import type { BuiltGltfDocument, LogicalGltfDocument } from "@/lib/scene/gltf-types";
 import type { ViewPreset } from "@/lib/scene/entities";
+
+type LogicalLight = LogicalGltfDocument["lights"][number];
 
 interface GltfViewportProps {
   gltfDocument: BuiltGltfDocument;
@@ -15,8 +17,11 @@ interface GltfViewportProps {
   selectedEntityIds?: string[];
   selectedEntityName?: string | null;
   isolatedEntityId?: string | null;
+  /** When set, shows draggable light gizmos for each light in the list. */
+  lightsForEdit?: LogicalLight[];
   onClearSelection?: () => void;
   onFocusSelected?: () => void;
+  onLightMove?: (index: number, position: [number, number, number]) => void;
   onSelectEntity?: (entityId: string | null, additive?: boolean) => void;
   onToggleIsolate?: () => void;
   onViewPreset?: (preset: ViewPreset) => void;
@@ -28,8 +33,10 @@ export function GltfViewport({
   selectedEntityIds = [],
   selectedEntityName = null,
   isolatedEntityId = null,
+  lightsForEdit,
   onClearSelection,
   onFocusSelected,
+  onLightMove,
   onSelectEntity,
   onToggleIsolate,
   onViewPreset,
@@ -37,20 +44,25 @@ export function GltfViewport({
   const extras = gltfDocument.extras;
   const camera = extras?.camera;
   const env = extras?.environment;
-  const backgroundColor = env?.backgroundColorHex ?? "#0b0f14";
+  const backgroundColor = env?.backgroundColorHex ?? "#87c4e8";
   const fogColor = env?.fogColorHex ?? backgroundColor;
-  const fogNear = env?.fogNear ?? 18;
-  const fogFar = env?.fogFar ?? 42;
+  const fogNear = env?.fogNear ?? 30;
+  const fogFar = env?.fogFar ?? 120;
   const cameraPos = camera?.position ?? [5, 4, 7];
   const cameraTarget = camera?.target ?? [0, 0, 0];
   const fov = camera?.fovDegrees ?? 50;
   const selectedEntityIdSet = new Set(selectedEntityIds);
+
+  const editableLights = (lightsForEdit ?? []).filter(
+    (l) => l.type !== "ambient",
+  );
 
   return (
     <div className="relative h-full min-h-0 w-full overflow-hidden border border-zinc-800 bg-[#0b0f14]">
       <ViewportToolbar
         hasSelection={Boolean(selectedEntityId)}
         isIsolating={Boolean(isolatedEntityId)}
+        isEditingLights={editableLights.length > 0}
         selectedCount={selectedEntityIdSet.size}
         selectedEntityName={selectedEntityName}
         onClearSelection={onClearSelection}
@@ -93,6 +105,20 @@ export function GltfViewport({
             onSelectEntity={onSelectEntity}
           />
         </Suspense>
+
+        {/* Draggable light handles — shown when Lights tab is active */}
+        {editableLights.map((light, i) => {
+          // find original index in lightsForEdit (ambient lights skipped above)
+          const originalIndex = (lightsForEdit ?? []).indexOf(light);
+          return (
+            <LightHandle
+              key={`light-handle-${originalIndex}`}
+              index={originalIndex}
+              light={light}
+              onMove={onLightMove ?? (() => {})}
+            />
+          );
+        })}
 
         <OrbitControls
           makeDefault
@@ -215,10 +241,104 @@ function GltfScene({ gltfDocument, isolatedEntityId, selectedEntityIds, onSelect
   );
 }
 
-// ─── Toolbar (same as SceneViewport) ────────────────────────────────────────
+// ─── Draggable light handle ───────────────────────────────────────────────────
+
+interface LightHandleProps {
+  index: number;
+  light: LogicalLight;
+  onMove: (index: number, position: [number, number, number]) => void;
+}
+
+function LightHandle({ index, light, onMove }: LightHandleProps) {
+  const meshRef = useRef<Mesh>(null);
+  const [attached, setAttached] = useState(false);
+  const { controls } = useThree();
+
+  const pos: [number, number, number] = light.position ?? [0, 5, 5];
+
+  // Sync external position changes (after rebuild) back to the mesh
+  useEffect(() => {
+    if (meshRef.current) {
+      meshRef.current.position.set(pos[0], pos[1], pos[2]);
+    }
+  // Only re-sync when the upstream position prop genuinely changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pos[0], pos[1], pos[2]]);
+
+  // Signal when the mesh is mounted so TransformControls can attach
+  useEffect(() => {
+    if (meshRef.current) setAttached(true);
+  }, []);
+
+  const handleDragStart = useCallback(() => {
+    if (controls) (controls as unknown as { enabled: boolean }).enabled = false;
+  }, [controls]);
+
+  const handleDragEnd = useCallback(() => {
+    if (controls) (controls as unknown as { enabled: boolean }).enabled = true;
+    if (!meshRef.current) return;
+    const p = meshRef.current.position;
+    onMove(index, [
+      Math.round(p.x * 10) / 10,
+      Math.round(p.y * 10) / 10,
+      Math.round(p.z * 10) / 10,
+    ]);
+  }, [controls, index, onMove]);
+
+  return (
+    <>
+      <mesh ref={meshRef} position={pos}>
+        <sphereGeometry args={[0.18, 12, 12]} />
+        <meshStandardMaterial
+          color="#ffd700"
+          emissive="#ff8c00"
+          emissiveIntensity={1.2}
+          toneMapped={false}
+        />
+      </mesh>
+
+      {/* Label */}
+      {attached && meshRef.current && (
+        <Html
+          position={[pos[0], pos[1] + 0.38, pos[2]]}
+          center
+          style={{ pointerEvents: "none", whiteSpace: "nowrap" }}
+        >
+          <span
+            style={{
+              background: "rgba(0,0,0,0.65)",
+              color: "#ffd700",
+              fontSize: 10,
+              fontWeight: 600,
+              padding: "1px 5px",
+              borderRadius: 3,
+              backdropFilter: "blur(4px)",
+            }}
+          >
+            {light.name}
+          </span>
+        </Html>
+      )}
+
+      {/* TransformControls — translate only */}
+      {attached && meshRef.current && (
+        <TransformControls
+          object={meshRef.current}
+          mode="translate"
+          size={0.65}
+          onMouseDown={handleDragStart}
+          onMouseUp={handleDragEnd}
+        />
+      )}
+    </>
+  );
+}
+
+// ─── Toolbar ─────────────────────────────────────────────────────────────────
 
 function ViewportToolbar({
   hasSelection,
+  isEditingLights,
   isIsolating,
   selectedCount,
   selectedEntityName,
@@ -228,6 +348,7 @@ function ViewportToolbar({
   onViewPreset,
 }: {
   hasSelection: boolean;
+  isEditingLights: boolean;
   isIsolating: boolean;
   selectedCount: number;
   selectedEntityName: string | null;
@@ -246,6 +367,11 @@ function ViewportToolbar({
         <button className={buttonClass} type="button" onClick={() => onViewPreset?.("top")}>Top</button>
         <button className={buttonClass} type="button" onClick={() => onViewPreset?.("front")}>Front</button>
         <button className={buttonClass} type="button" onClick={() => onViewPreset?.("right")}>Right</button>
+        {isEditingLights && (
+          <span className="border border-amber-500/60 bg-amber-950/70 px-2.5 py-1.5 text-[11px] font-semibold text-amber-300 shadow-sm backdrop-blur">
+            ✦ Light edit — drag gizmos to reposition
+          </span>
+        )}
       </div>
       <div className="pointer-events-auto flex min-w-0 flex-wrap items-center justify-end gap-1">
         {selectedEntityName ? (

@@ -62,7 +62,7 @@ export interface BuiltGltfDocument {
       target: [number, number, number];
       fovDegrees: number;
     };
-    environment?: {
+    environment: {
       backgroundColorHex: string;
       fogColorHex?: string;
       fogNear?: number;

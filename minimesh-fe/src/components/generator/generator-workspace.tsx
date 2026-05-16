@@ -10,6 +10,7 @@ import {
   clarifyGenerationPrompt,
   createGenerationJob,
   getGenerationJob,
+  rebuildGltf,
 } from "@/lib/api/generation";
 import { getProject } from "@/lib/api/projects";
 import {
@@ -52,6 +53,7 @@ import type {
   SceneVersion,
 } from "@/lib/scene/types";
 import { EntityPanel } from "./entity-panel";
+import { LightPanel } from "./light-panel";
 import { PromptPanel } from "./prompt-panel";
 import { SceneListPanel, SceneVersionsPanel } from "./scene-library";
 import { StudioSidebar, type StudioSidebarView } from "./studio-sidebar";
@@ -137,6 +139,7 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
   const [jsonDraft, setJsonDraft] = useState("{}");
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [isImportingGlb, setIsImportingGlb] = useState(false);
+  const [isRebuildingLights, setIsRebuildingLights] = useState(false);
   const glbInputRef = useRef<HTMLInputElement>(null);
   const [sidebarView, setSidebarView] = useState<StudioSidebarView>("agent");
   const { confirm, modal, prompt: promptModal } = useAppModal();
@@ -1245,6 +1248,29 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
     }
   }
 
+  async function handleLightChange(
+    index: number,
+    patch: Partial<LogicalGltfDocument["lights"][number]>,
+  ) {
+    if (!logicalGltf || !accessToken) return;
+
+    const updatedLights = logicalGltf.lights.map((l, i) =>
+      i === index ? { ...l, ...patch } : l,
+    );
+    const updatedLogicalGltf: LogicalGltfDocument = { ...logicalGltf, lights: updatedLights };
+    setLogicalGltf(updatedLogicalGltf);
+
+    setIsRebuildingLights(true);
+    try {
+      const newGltfDoc = await rebuildGltf(updatedLogicalGltf, accessToken);
+      setGltfDocument(newGltfDoc);
+    } catch (err) {
+      console.error("[LightPanel] Failed to rebuild scene:", err);
+    } finally {
+      setIsRebuildingLights(false);
+    }
+  }
+
   async function handleImportGlb(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
 
@@ -1379,6 +1405,14 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
             onTransformChange={handleTransformEntity}
           />
         }
+        lights={
+          <LightPanel
+            embedded
+            lights={logicalGltf?.lights ?? []}
+            isRebuilding={isRebuildingLights}
+            onLightChange={(index, patch) => void handleLightChange(index, patch)}
+          />
+        }
       />
 
       <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
@@ -1448,6 +1482,7 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
             <GltfViewport
               gltfDocument={gltfDocument}
               isolatedEntityId={isolatedEntityId}
+              lightsForEdit={sidebarView === "lights" && logicalGltf ? logicalGltf.lights : undefined}
               selectedEntityId={selectedEntityId}
               selectedEntityIds={selectedEntityIdsArray}
               selectedEntityName={
@@ -1455,6 +1490,7 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
               }
               onClearSelection={() => handleSelectEntity(null)}
               onFocusSelected={handleFocusEntity}
+              onLightMove={(index, position) => void handleLightChange(index, { position })}
               onSelectEntity={(entityId, additive) => {
                 handleSelectEntity(entityId, additive);
               }}

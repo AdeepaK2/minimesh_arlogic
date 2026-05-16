@@ -4,6 +4,7 @@ import {
   EMBEDDINGS_PROVIDER,
   type EmbeddingsProvider,
 } from '../../ai/embeddings/embeddings.types';
+import { APPROVED_SCENE_SEEDS } from './seeds/approved-scenes.seed';
 
 interface TemplateRow {
   id: string;
@@ -16,10 +17,11 @@ interface TemplateRow {
 }
 
 /**
- * On startup, finds any object_templates rows that are missing from
- * template_embeddings and generates + stores their embeddings.
- * This "bootstraps" the vector index so pgvector returns results even
- * when the database is freshly seeded with template rows but no embeddings.
+ * Runs on startup:
+ * 1. Seeds any entries from APPROVED_SCENE_SEEDS that are not yet in object_templates.
+ * 2. Backfills template_embeddings for any object_templates rows that are missing them.
+ *
+ * Both steps are non-fatal — the app starts even if they fail.
  */
 @Injectable()
 export class TemplatesSeedService implements OnModuleInit {
@@ -33,17 +35,103 @@ export class TemplatesSeedService implements OnModuleInit {
 
   async onModuleInit() {
     try {
+      await this.seedApprovedScenes();
+    } catch (err) {
+      this.logger.warn('[TemplatesSeed] scene seed failed (non-fatal)', err);
+    }
+
+    try {
       await this.backfillMissingEmbeddings();
     } catch (err) {
-      // Non-fatal: the app still starts, just without seeded embeddings.
-      this.logger.warn('[TemplatesSeed] backfill failed (non-fatal)', err);
+      this.logger.warn('[TemplatesSeed] embedding backfill failed (non-fatal)', err);
     }
   }
+
+  // ─── Step 1: seed approved scenes ────────────────────────────────────────
+
+  private async seedApprovedScenes(): Promise<void> {
+    const client = this.supabaseService.getClient();
+
+    // Fetch existing template names to avoid duplicating
+    const { data: existing } = await client
+      .from('object_templates')
+      .select('name')
+      .eq('is_public', true);
+
+    const existingNames = new Set(
+      (existing ?? []).map((r: { name: string }) => r.name),
+    );
+
+    const toInsert = APPROVED_SCENE_SEEDS.filter(
+      (s) => !existingNames.has(s.name),
+    );
+
+    if (toInsert.length === 0) return;
+
+    this.logger.log(
+      `[TemplatesSeed] Inserting ${toInsert.length} approved scene(s) into object_templates…`,
+    );
+
+    for (const seed of toInsert) {
+      try {
+        // Build a fragment (objects + lights subset) from the full scene
+        const sceneObj = seed.scene as Record<string, unknown>;
+        const fragment = {
+          objects: ((sceneObj.objects as unknown[]) ?? []).slice(0, 24),
+          lights: ((sceneObj.lights as unknown[]) ?? []).slice(0, 4),
+        };
+
+        const { data, error } = await client
+          .from('object_templates')
+          .insert({
+            name: seed.name,
+            category: seed.category,
+            description: seed.description,
+            tags: seed.tags,
+            scene_json_fragment: fragment,
+            scene_json_document: seed.scene,
+            reference_type: 'scene',
+            is_public: true,
+            approved_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .select('id')
+          .single();
+
+        if (error || !data) {
+          this.logger.warn(`[TemplatesSeed] ✗ insert "${seed.name}": ${error?.message}`);
+          continue;
+        }
+
+        // Generate and store the embedding immediately
+        const embeddingText = [
+          seed.name,
+          seed.category,
+          seed.description,
+          seed.tags.join(' '),
+          JSON.stringify(fragment),
+        ].join('\n');
+
+        const embedding = await this.embeddingsProvider.embedText(embeddingText);
+
+        await client.from('template_embeddings').insert({
+          template_id: (data as { id: string }).id,
+          embedding: `[${embedding.join(',')}]`,
+          updated_at: new Date().toISOString(),
+        });
+
+        this.logger.log(`[TemplatesSeed] ✓ seeded "${seed.name}"`);
+      } catch (err) {
+        this.logger.warn(`[TemplatesSeed] ✗ "${seed.name}": ${String(err)}`);
+      }
+    }
+  }
+
+  // ─── Step 2: backfill embeddings for orphaned rows ───────────────────────
 
   private async backfillMissingEmbeddings(): Promise<void> {
     const client = this.supabaseService.getClient();
 
-    // Load all public templates and all existing embedding IDs in parallel
     const [templatesResult, embeddingIdsResult] = await Promise.all([
       client.from('object_templates').select('*').eq('is_public', true),
       client.from('template_embeddings').select('template_id'),
@@ -64,7 +152,9 @@ export class TemplatesSeedService implements OnModuleInit {
 
     if (missing.length === 0) return;
 
-    this.logger.log(`[TemplatesSeed] Seeding embeddings for ${missing.length} template(s)…`);
+    this.logger.log(
+      `[TemplatesSeed] Backfilling embeddings for ${missing.length} template(s)…`,
+    );
 
     for (const template of missing) {
       try {

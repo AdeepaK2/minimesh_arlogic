@@ -49,11 +49,20 @@ Use distinct, visually interesting colors. Avoid all-grey scenes.
 Each major entity should have its own material. Ground should use a subtle color (green, grey, sand).
 
 ━━━ LIGHTING ━━━
-Always include at minimum:
-  1 ambient light (intensity 0.3–0.6) for base illumination
-  1 directional key light (intensity 1.5–2.5) from above-side (e.g. position [5, 8, 6])
-  1 fill light (directional or point, intensity 0.4–0.8) from opposite side
-Optional: rim light, coloured point lights for atmosphere.
+Always include exactly these 4 lights (studio 4-point rig):
+  1. AmbientSky  — type:ambient,     intensity 0.65–0.80, colorHex #d4e8ff   (lifts shadows globally)
+  2. KeyLight    — type:directional, intensity 1.6–2.0,  colorHex #fff8e8,  position [6, 10, 7]   (front-right-above)
+  3. FillLight   — type:directional, intensity 0.9–1.2,  colorHex #b8d4ff,  position [-7, 5, 5]   (front-left)
+  4. RimLight    — type:directional, intensity 0.7–1.0,  colorHex #ffffff,  position [0, 7, -10]  (directly behind)
+This rig illuminates the subject from ALL sides — no face should ever be pitch-black.
+
+━━━ ENVIRONMENT ━━━
+Always include an "environment" block with backgroundColorHex and fogColorHex.
+  Daytime outdoor:  backgroundColorHex "#87c4e8", fogColorHex "#a8d4f0", fogNear 30, fogFar 120
+  Night / neon:     backgroundColorHex "#0d1b2a", fogColorHex "#0d1b2a", fogNear 18, fogFar 60
+  Sunset / dusk:    backgroundColorHex "#e8845a", fogColorHex "#c8604a", fogNear 20, fogFar 70
+  Indoor / studio:  backgroundColorHex "#1a1a2e", fogColorHex "#1a1a2e", fogNear 10, fogFar 40
+Never leave environment undefined — a black background looks broken.
 
 ━━━ CAMERA ━━━
 Position the camera to show the main subject clearly:
@@ -70,31 +79,38 @@ Position the camera to show the main subject clearly:
 5. The scene must have a recognisable ground or environment plane.
 6. entityId must be a lowercase snake_case string (e.g. "cricket_bat", "player_1").
 
-━━━ EXAMPLE ━━━
+━━━ GOLD STANDARD EXAMPLE — follow this level of detail ━━━
 {
   "sceneName": "Cricket Bat and Ball",
-  "description": "A wooden cricket bat with leather grip resting beside a red cricket ball on a grass pitch.",
+  "description": "A detailed cricket bat with wooden willow blade, cane handle, and rubber grip resting beside a red cricket ball on a grass pitch.",
   "nodes": [
-    { "name": "Bat Blade", "primitiveType": "box", "translation": [0, 0.55, 0], "eulerRotation": [0, 0, 0], "scale": [0.12, 0.55, 0.03], "materialIndex": 0, "entityId": "cricket_bat" },
-    { "name": "Bat Handle", "primitiveType": "cylinder", "translation": [0, 1.27, 0], "eulerRotation": [0, 0, 0], "scale": [0.025, 0.35, 0.025], "materialIndex": 1, "entityId": "cricket_bat" },
-    { "name": "Bat Grip Wrap", "primitiveType": "cylinder", "translation": [0, 1.23, 0], "eulerRotation": [0, 0, 0], "scale": [0.028, 0.33, 0.028], "materialIndex": 2, "entityId": "cricket_bat" },
-    { "name": "Bat Knob", "primitiveType": "sphere", "translation": [0, 1.47, 0], "eulerRotation": [0, 0, 0], "scale": [0.04, 0.04, 0.04], "materialIndex": 1, "entityId": "cricket_bat" },
-    { "name": "Cricket Ball", "primitiveType": "sphere", "translation": [0.35, 0.035, 0.1], "eulerRotation": [0, 0, 0], "scale": [0.07, 0.07, 0.07], "materialIndex": 3, "entityId": "cricket_ball" },
-    { "name": "Ground", "primitiveType": "plane", "translation": [0, 0, 0], "eulerRotation": [0, 0, 0], "scale": [20, 1, 20], "materialIndex": 4 }
+    { "name": "Bat Blade",     "primitiveType": "box",      "translation": [0,    0.275, 0],    "eulerRotation": [0,0,0], "scale": [0.12,  0.55,  0.03],  "materialIndex": 0, "entityId": "cricket_bat" },
+    { "name": "Bat Shoulder",  "primitiveType": "box",      "translation": [0,    0.555, 0],    "eulerRotation": [0,0,0], "scale": [0.12,  0.06,  0.03],  "materialIndex": 0, "entityId": "cricket_bat" },
+    { "name": "Bat Spine",     "primitiveType": "box",      "translation": [0.045,0.35,  0],    "eulerRotation": [0,0,0], "scale": [0.015, 0.4,   0.035], "materialIndex": 1, "entityId": "cricket_bat" },
+    { "name": "Bat Handle",    "primitiveType": "cylinder", "translation": [0,    0.74,  0],    "eulerRotation": [0,0,0], "scale": [0.025, 0.35,  0.025], "materialIndex": 2, "entityId": "cricket_bat" },
+    { "name": "Bat Grip Wrap", "primitiveType": "cylinder", "translation": [0,    0.72,  0],    "eulerRotation": [0,0,0], "scale": [0.028, 0.33,  0.028], "materialIndex": 3, "entityId": "cricket_bat" },
+    { "name": "Bat Knob",      "primitiveType": "sphere",   "translation": [0,    0.945, 0],    "eulerRotation": [0,0,0], "scale": [0.04,  0.04,  0.04],  "materialIndex": 2, "entityId": "cricket_bat" },
+    { "name": "Cricket Ball",  "primitiveType": "sphere",   "translation": [0.4,  0.035, 0.1],  "eulerRotation": [0,0,0], "scale": [0.07,  0.07,  0.07],  "materialIndex": 4, "entityId": "cricket_ball" },
+    { "name": "Ball Seam",     "primitiveType": "torus",    "translation": [0.4,  0.035, 0.1],  "eulerRotation": [1.5708,0,0], "scale": [0.045, 0.045, 0.012], "materialIndex": 5, "entityId": "cricket_ball" },
+    { "name": "Ground",        "primitiveType": "plane",    "translation": [0,    0,     0],    "eulerRotation": [0,0,0], "scale": [20,    1,     20],    "materialIndex": 6 }
   ],
   "materials": [
-    { "name": "WillowWood", "baseColorHex": "#d4b483", "metallicFactor": 0, "roughnessFactor": 0.8 },
-    { "name": "CaneHandle", "baseColorHex": "#8b5e3c", "metallicFactor": 0, "roughnessFactor": 0.85 },
-    { "name": "LeatherGrip", "baseColorHex": "#1a1a1a", "metallicFactor": 0, "roughnessFactor": 0.9 },
-    { "name": "CricketBallRed", "baseColorHex": "#c0392b", "metallicFactor": 0, "roughnessFactor": 0.6 },
-    { "name": "GrassPitch", "baseColorHex": "#3a7d44", "metallicFactor": 0, "roughnessFactor": 1.0 }
+    { "name": "WillowWood",   "baseColorHex": "#d4b483", "metallicFactor": 0,   "roughnessFactor": 0.8  },
+    { "name": "DarkerWood",   "baseColorHex": "#9a7b4f", "metallicFactor": 0,   "roughnessFactor": 0.75 },
+    { "name": "CaneHandle",   "baseColorHex": "#8b5e3c", "metallicFactor": 0,   "roughnessFactor": 0.85 },
+    { "name": "LeatherGrip",  "baseColorHex": "#1a1a1a", "metallicFactor": 0,   "roughnessFactor": 0.9  },
+    { "name": "BallRed",      "baseColorHex": "#c0392b", "metallicFactor": 0,   "roughnessFactor": 0.6  },
+    { "name": "SeamWhite",    "baseColorHex": "#f5f5f5", "metallicFactor": 0,   "roughnessFactor": 0.7  },
+    { "name": "GrassPitch",   "baseColorHex": "#3a7d44", "metallicFactor": 0,   "roughnessFactor": 1.0  }
   ],
   "lights": [
-    { "name": "Ambient", "type": "ambient", "colorHex": "#d0e8ff", "intensity": 0.4 },
-    { "name": "SunKey", "type": "directional", "colorHex": "#fff5e0", "intensity": 2.2, "position": [5, 8, 6] },
-    { "name": "FillLight", "type": "directional", "colorHex": "#a0c4ff", "intensity": 0.6, "position": [-4, 3, -3] }
+    { "name": "AmbientSky", "type": "ambient",     "colorHex": "#d4e8ff", "intensity": 0.7  },
+    { "name": "KeyLight",   "type": "directional", "colorHex": "#fff8e8", "intensity": 1.8,  "position": [6, 10, 7]  },
+    { "name": "FillLight",  "type": "directional", "colorHex": "#b8d4ff", "intensity": 1.0,  "position": [-7, 5, 5]  },
+    { "name": "RimLight",   "type": "directional", "colorHex": "#ffffff", "intensity": 0.85, "position": [0, 7, -10] }
   ],
-  "camera": { "position": [0.8, 0.9, 1.8], "target": [0.1, 0.5, 0], "fovDegrees": 55 }
+  "camera": { "position": [0.8, 0.9, 1.8], "target": [0.1, 0.5, 0], "fovDegrees": 55 },
+  "environment": { "backgroundColorHex": "#87c4e8", "fogColorHex": "#a8d4f0", "fogNear": 30, "fogFar": 120 }
 }
 `;
 
@@ -107,7 +123,8 @@ Requirements:
 - Decompose every major object into multiple primitives with entityId grouping.
 - Use correct real-world scale (1 unit ≈ 1 metre). Objects resting on the ground: Y translation = half of Y scale.
 - Use at least 4 distinct PBR materials with realistic colors.
-- Include 3 lights minimum (ambient + key + fill).
+- Include 4 lights: AmbientSky (ambient) + KeyLight (directional, pos [6,10,7]) + FillLight (directional, pos [-7,5,5]) + RimLight (directional, pos [0,7,-10]).
+- Include an environment block with backgroundColorHex, fogColorHex, fogNear, fogFar (use daytime sky #87c4e8 unless prompt says otherwise).
 - Position the camera to showcase the main subject from an interesting angle.
 - The scene must have a ground plane.`;
 }
@@ -148,25 +165,47 @@ ${invalidOutput}
 Return only corrected JSON that follows the MiniMesh Logical glTF schema.`;
 }
 
+/**
+ * Studio-quality 4-point lighting rig used whenever the LLM provides
+ * fewer than 3 directional/point lights.
+ *
+ *  ① Key  — warm, strong, front-right-above   → main shape + shadows
+ *  ② Fill — cool, soft,  front-left           → opens up the shadow side
+ *  ③ Rim  — neutral, medium, directly behind  → separates object from bg
+ *  ④ Ambient — sky blue, very soft            → base fill, no hard shadows
+ *
+ * Together they illuminate the subject from every quadrant.
+ */
 export const FALLBACK_GLTF_LIGHTS: LogicalGltfDocument['lights'] = [
+  // Higher ambient so shadow faces are never pitch-black
   {
-    name: 'Ambient',
+    name: 'AmbientSky',
     type: 'ambient',
-    colorHex: '#d0e8ff',
-    intensity: 0.4,
+    colorHex: '#d4e8ff',
+    intensity: 0.7,
   },
+  // Key — warm, front-right-above
   {
     name: 'KeyLight',
     type: 'directional',
-    colorHex: '#fff5e0',
-    intensity: 2.2,
-    position: [5, 8, 6],
+    colorHex: '#fff8e8',
+    intensity: 1.8,
+    position: [6, 10, 7],
   },
+  // Fill — cool, front-left — lifts left-side shadows
   {
     name: 'FillLight',
     type: 'directional',
-    colorHex: '#a0c4ff',
-    intensity: 0.6,
-    position: [-4, 3, -3],
+    colorHex: '#b8d4ff',
+    intensity: 1.0,
+    position: [-7, 5, 5],
+  },
+  // Rim — behind, separates object from background
+  {
+    name: 'RimLight',
+    type: 'directional',
+    colorHex: '#ffffff',
+    intensity: 0.85,
+    position: [0, 7, -10],
   },
 ];

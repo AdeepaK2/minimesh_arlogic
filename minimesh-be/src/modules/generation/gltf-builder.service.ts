@@ -9,6 +9,7 @@ import type {
 } from '../../schemas/logical-gltf.schema';
 import type { PrimitiveGeometry } from './gltf-primitive-library.service';
 import { GltfPrimitiveLibraryService } from './gltf-primitive-library.service';
+import { FALLBACK_GLTF_LIGHTS } from './gltf-generation.prompts';
 
 // glTF accessor component types
 const FLOAT = 5126;
@@ -32,6 +33,9 @@ export class GltfBuilderService {
   constructor(private readonly primitiveLibrary: GltfPrimitiveLibraryService) {}
 
   build(doc: LogicalGltfDocument): BuiltGltfDocument {
+    // Guarantee studio-quality surrounding lighting regardless of LLM output
+    const lights = this.ensureGoodLighting(doc.lights);
+
     // Collect unique primitive types used
     const usedTypes = new Set<LogicalPrimitiveType>(
       doc.nodes
@@ -47,8 +51,8 @@ export class GltfBuilderService {
     const gltfMaterials = doc.materials.map((m) => this.buildMaterial(m));
 
     // Separate ambient from directional/point lights
-    const ambientLights = doc.lights.filter((l) => l.type === 'ambient');
-    const pbrLights = doc.lights.filter((l) => l.type !== 'ambient');
+    const ambientLights = lights.filter((l) => l.type === 'ambient');
+    const pbrLights = lights.filter((l) => l.type !== 'ambient');
 
     // Build KHR_lights_punctual lights
     const khrLights = pbrLights.map((l) => ({
@@ -76,13 +80,17 @@ export class GltfBuilderService {
     for (let i = 0; i < pbrLights.length; i++) {
       const light = pbrLights[i];
       const pos = light.position ?? this.defaultLightPosition(light.type);
-      gltfNodes.push({
+      const lightNode: BuiltGltfDocument['nodes'][number] = {
         name: light.name,
         translation: pos,
-        extensions: {
-          KHR_lights_punctual: { light: i },
-        },
-      });
+        extensions: { KHR_lights_punctual: { light: i } },
+      };
+      // Directional lights use node ROTATION for direction (not translation).
+      // Compute quaternion that makes the default -Z axis point from pos → origin.
+      if (light.type === 'directional') {
+        lightNode.rotation = this.lightPositionToRotation(pos);
+      }
+      gltfNodes.push(lightNode);
       rootNodeIndices.push(lightNodeStart + i);
     }
 
@@ -117,14 +125,7 @@ export class GltfBuilderService {
           target: doc.camera.target,
           fovDegrees: doc.camera.fovDegrees,
         },
-        environment: doc.environment
-          ? {
-              backgroundColorHex: doc.environment.backgroundColorHex,
-              fogColorHex: doc.environment.fogColorHex,
-              fogNear: doc.environment.fogNear,
-              fogFar: doc.environment.fogFar,
-            }
-          : undefined,
+        environment: this.resolveEnvironment(doc),
         ambientLights: ambientLights.map((l) => ({
           colorHex: l.colorHex ?? '#ffffff',
           intensity: l.intensity ?? 1,
@@ -377,8 +378,100 @@ export class GltfBuilderService {
     return nodes.some((n) => n.children?.includes(index));
   }
 
+  /**
+   * Always returns an environment block.  If the LLM omitted it we pick a
+   * sensible sky colour based on scene keywords so the viewport is never black.
+   */
+  private resolveEnvironment(
+    doc: LogicalGltfDocument,
+  ): { backgroundColorHex: string; fogColorHex?: string; fogNear?: number; fogFar?: number } {
+    if (doc.environment) {
+      return {
+        backgroundColorHex: doc.environment.backgroundColorHex,
+        fogColorHex: doc.environment.fogColorHex,
+        fogNear: doc.environment.fogNear,
+        fogFar: doc.environment.fogFar,
+      };
+    }
+
+    const ctx = `${doc.sceneName} ${doc.description ?? ''}`.toLowerCase();
+    const isNight = /night|neon|dark|cyberpunk|dusk|midnight/.test(ctx);
+    const isSunset = /sunset|dusk|golden|evening|twilight/.test(ctx);
+    const isIndoor = /interior|room|indoor|kitchen|office/.test(ctx);
+
+    let bgColor: string;
+    let fogColor: string;
+    let fogNear: number;
+    let fogFar: number;
+
+    if (isNight) {
+      bgColor = '#0d1b2a'; fogColor = '#0d1b2a'; fogNear = 18; fogFar = 60;
+    } else if (isSunset) {
+      bgColor = '#e8845a'; fogColor = '#c8604a'; fogNear = 20; fogFar = 70;
+    } else if (isIndoor) {
+      bgColor = '#1a1a2e'; fogColor = '#1a1a2e'; fogNear = 10; fogFar = 40;
+    } else {
+      // Default: pleasant daytime sky
+      bgColor = '#87c4e8'; fogColor = '#a8d4f0'; fogNear = 30; fogFar = 120;
+    }
+
+    return { backgroundColorHex: bgColor, fogColorHex: fogColor, fogNear, fogFar };
+  }
+
   private defaultLightPosition(type: string): [number, number, number] {
     return type === 'directional' ? [4, 6, 5] : [0, 5, 0];
+  }
+
+  /**
+   * glTF directional lights emit along the node's local -Z axis.
+   * THREE.js GLTFLoader attaches the target at local [0,0,-1] of the node, so
+   * the illumination direction = Rotation.apply([0,0,-1]).
+   *
+   * This method returns the [x,y,z,w] quaternion that rotates [0,0,-1] to point
+   * FROM the given world position TOWARD the scene origin [0,0,0], producing
+   * the intuitive "light shines from here" behaviour.
+   */
+  private lightPositionToRotation(
+    position: [number, number, number],
+  ): [number, number, number, number] {
+    const [px, py, pz] = position;
+    const len = Math.sqrt(px * px + py * py + pz * pz);
+    if (len < 1e-6) return [0, 0, 0, 1]; // at origin → identity
+
+    // Desired direction: normalize(origin − position)
+    const dx = -px / len;
+    const dy = -py / len;
+    const dz = -pz / len;
+
+    // dot([0,0,−1], desired) = −dz
+    const dot = -dz;
+
+    if (dot > 0.9999999) return [0, 0, 0, 1]; // already pointing right
+    if (dot < -0.9999999) return [1, 0, 0, 0]; // 180° flip around X
+
+    // cross([0,0,−1] × [dx,dy,dz]) = [dy, −dx, 0]
+    const cx = dy;
+    const cy = -dx;
+    const cz = 0;
+
+    // Half-angle quaternion: normalize([cx, cy, cz, 1+dot])
+    const w = 1 + dot;
+    const mag = Math.sqrt(cx * cx + cy * cy + cz * cz + w * w);
+    return [cx / mag, cy / mag, cz / mag, w / mag];
+  }
+
+  /**
+   * Ensures every scene has at least 3 non-ambient directional lights so
+   * the subject is illuminated from multiple angles.
+   * If the LLM provides ≥ 3 directional/point lights we trust its choices.
+   * Otherwise we fall back to the studio 4-point rig.
+   */
+  private ensureGoodLighting(
+    provided: LogicalGltfDocument['lights'],
+  ): LogicalGltfDocument['lights'] {
+    const pbrCount = provided.filter((l) => l.type !== 'ambient').length;
+    if (pbrCount >= 3) return provided;
+    return FALLBACK_GLTF_LIGHTS;
   }
 
   private isZero3(v: [number, number, number]): boolean {

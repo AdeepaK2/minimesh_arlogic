@@ -144,7 +144,7 @@ export interface BuiltGltfDocument {
     sceneName: string;
     description?: string;
     camera: { position: [number, number, number]; target: [number, number, number]; fovDegrees: number };
-    environment?: { backgroundColorHex: string; fogColorHex?: string; fogNear?: number; fogFar?: number };
+    environment: { backgroundColorHex: string; fogColorHex?: string; fogNear?: number; fogFar?: number };
     ambientLights: Array<{ colorHex: string; intensity: number }>;
   };
 }
