@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { useAuth } from "./auth-provider";
 
@@ -10,8 +10,17 @@ interface AuthScreenProps {
   initialMode?: "signin" | "signup";
 }
 
+function safeRedirectPath(next: string | null): string {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) {
+    return "/dashboard";
+  }
+  return next;
+}
+
 export function AuthScreen({ initialMode = "signin" }: AuthScreenProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = safeRedirectPath(searchParams.get("next"));
   const {
     accessToken,
     error: sessionError,
@@ -29,9 +38,9 @@ export function AuthScreen({ initialMode = "signin" }: AuthScreenProps) {
 
   useEffect(() => {
     if (!isLoading && accessToken) {
-      router.replace("/dashboard");
+      router.replace(redirectTo);
     }
-  }, [accessToken, isLoading, router]);
+  }, [accessToken, isLoading, redirectTo, router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

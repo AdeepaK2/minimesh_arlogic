@@ -86,12 +86,12 @@ export function CategoryField({
                 onChange(sortedOptions[0]);
               }
             }}
-            className="rounded-lg border border-white/10 px-3 py-1.5 text-[11px] text-zinc-400 hover:text-zinc-200"
+            className="rounded-lg border border-landing px-3 py-1.5 text-[11px] text-landing-subtle hover:text-landing-heading"
           >
             Cancel
           </button>
         </div>
-        <p className="text-[10px] text-zinc-500">
+        <p className="text-[10px] text-landing-subtle">
           Saved as a lowercase slug (letters, numbers, underscores · max 64 chars)
         </p>
       </div>
@@ -128,7 +128,7 @@ export function CategoryField({
       <button
         type="button"
         onClick={() => handleSelectChange("__custom__")}
-        className="w-fit text-left text-[10px] text-cyan-500/80 transition hover:text-cyan-300"
+        className="w-fit text-left text-[10px] text-landing-muted transition hover:text-cyan-400/90"
       >
         Add a category not in the list
       </button>

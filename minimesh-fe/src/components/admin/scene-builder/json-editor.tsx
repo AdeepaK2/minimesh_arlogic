@@ -12,16 +12,16 @@ export function JsonEditor({ value, onChange, issues }: JsonEditorProps) {
 
   return (
     <div
-      className={`admin-viewport-bg overflow-hidden rounded-xl border font-mono text-xs ${
+      className={`overflow-hidden rounded-lg border font-mono text-[11px] ${
         hasError
-          ? "border-rose-500/40 shadow-[0_0_24px_rgba(244,63,94,0.12)]"
-          : "border-cyan-500/20 shadow-[inset_0_0_40px_rgba(34,211,238,0.04)]"
+          ? "border-rose-500/35 bg-rose-500/[0.03]"
+          : "border-landing bg-landing-code"
       }`}
     >
-      <div className="grid grid-cols-[3rem_1fr]">
+      <div className="grid grid-cols-[2.25rem_1fr]">
         <pre
           aria-hidden
-          className="select-none border-r border-white/5 bg-black/40 px-2 py-3 text-right leading-5 text-zinc-600"
+          className="select-none border-r border-landing bg-landing-surface px-1.5 py-2 text-right leading-[1.35rem] text-landing-subtle"
         >
           {lines.map((_, index) => (
             <div key={index}>{index + 1}</div>
@@ -31,18 +31,18 @@ export function JsonEditor({ value, onChange, issues }: JsonEditorProps) {
           value={value}
           onChange={(event) => onChange(event.target.value)}
           spellCheck={false}
-          className="min-h-64 resize-y bg-transparent px-3 py-3 leading-5 text-cyan-50/95 caret-cyan-300 outline-none"
+          className="min-h-[11rem] max-h-64 resize-y bg-transparent px-2 py-2 leading-[1.35rem] text-landing-heading caret-[var(--landing-accent)] outline-none"
         />
       </div>
       {hasError ? (
-        <ul className="border-t border-rose-500/20 bg-rose-500/5 px-3 py-2 text-[11px] text-rose-200">
+        <ul className="border-t border-rose-500/20 px-2 py-1.5 text-[10px] text-rose-400">
           {issues.map((issue) => (
             <li key={issue}>{issue}</li>
           ))}
         </ul>
       ) : (
-        <p className="border-t border-white/5 px-3 py-1.5 text-[10px] text-emerald-400/80">
-          JSON syntax valid · Run Validate for schema checks
+        <p className="border-t border-landing px-2 py-1 text-[9px] text-landing-subtle">
+          Valid JSON · schema checked on preview
         </p>
       )}
     </div>

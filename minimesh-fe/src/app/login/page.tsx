@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import { AuthScreen } from "@/components/auth/auth-screen";
 
 export default function LoginPage() {
-  return <AuthScreen initialMode="signin" />;
+  return (
+    <Suspense fallback={null}>
+      <AuthScreen initialMode="signin" />
+    </Suspense>
+  );
 }

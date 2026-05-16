@@ -11,7 +11,7 @@ const DIMENSIONS = 512;
 
 @Injectable()
 export class OpenAiEmbeddingsService implements EmbeddingsProvider {
-  private readonly client: OpenAI;
+  private readonly client: OpenAI | null;
   private readonly logger = new Logger(OpenAiEmbeddingsService.name);
   /** Once a quota/auth error is seen we skip OpenAI for the rest of this process. */
   private quotaExceeded = false;
@@ -20,13 +20,18 @@ export class OpenAiEmbeddingsService implements EmbeddingsProvider {
     private readonly configService: ConfigService,
     private readonly hashEmbeddings: HashEmbeddingsService,
   ) {
-    this.client = new OpenAI({
-      apiKey: this.configService.get<string>('OPENAI_API_KEY'),
-    });
+    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    this.client = apiKey ? new OpenAI({ apiKey }) : null;
+
+    if (!this.client) {
+      this.logger.warn(
+        'OPENAI_API_KEY is not set — OpenAI embeddings are disabled; hash fallback is used when selected.',
+      );
+    }
   }
 
   async embedText(text: string): Promise<number[]> {
-    if (this.quotaExceeded) {
+    if (!this.client || this.quotaExceeded) {
       return this.hashEmbeddings.embedText(text);
     }
 

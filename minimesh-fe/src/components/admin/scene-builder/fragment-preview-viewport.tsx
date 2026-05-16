@@ -1,7 +1,7 @@
 "use client";
 
 import { Box, Edges, Grid, OrbitControls, Stats } from "@react-three/drei";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas } from "@react-three/fiber";
 import { useMemo } from "react";
 import { ACESFilmicToneMapping, MOUSE } from "three";
 import { PrimitiveObject } from "@/components/scene/primitive-object";
@@ -24,11 +24,11 @@ export function FragmentPreviewViewport({
 }: FragmentPreviewViewportProps) {
   if (!scene) {
     return (
-      <div className="admin-viewport-bg grid h-full min-h-[420px] place-items-center border border-cyan-500/10">
-        <div className="max-w-xs text-center">
-          <p className="text-sm font-medium text-cyan-200/80">Live 3D Preview</p>
-          <p className="mt-2 text-xs leading-5 text-landing-subtle">
-            Validate JSON and click Generate Preview to render the fragment in-browser.
+      <div className="sb-viewport-empty grid h-full place-items-center">
+        <div className="max-w-xs px-4 text-center">
+          <p className="text-xs font-medium text-landing-heading">3D viewport</p>
+          <p className="mt-1.5 text-[10px] leading-relaxed text-landing-subtle">
+            Validate JSON, then use Preview to render the fragment here.
           </p>
         </div>
       </div>
@@ -36,20 +36,20 @@ export function FragmentPreviewViewport({
   }
 
   const environment = scene.environment ?? {
-    backgroundColor: "#060a12",
-    fogColor: "#060a12",
+    backgroundColor: "#0b1018",
+    fogColor: "#0b1018",
     fogNear: 14,
     fogFar: 38,
-    exposure: 1.15,
+    exposure: 1.1,
   };
 
   const bounds = useMemo(() => computeBounds(scene.objects), [scene.objects]);
 
   return (
-    <div className="admin-viewport-bg relative h-full min-h-[420px] overflow-hidden border border-cyan-500/20 shadow-[inset_0_0_80px_rgba(34,211,238,0.06)]">
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-px bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent" />
+    <div className="sb-viewport-canvas relative h-full w-full overflow-hidden">
       <Canvas
         shadows
+        className="!h-full !w-full"
         gl={{ toneMapping: ACESFilmicToneMapping, antialias: true }}
         onCreated={({ gl }) => {
           gl.toneMappingExposure = environment.exposure;
@@ -76,11 +76,11 @@ export function FragmentPreviewViewport({
         )}
         {showGrid ? (
           <Grid
-            args={[24, 24]}
-            cellColor="#1e3a4a"
-            sectionColor="#22d3ee"
-            sectionThickness={0.6}
-            fadeDistance={28}
+            args={[20, 20]}
+            cellColor="#1a2836"
+            sectionColor="#2d4a5e"
+            sectionThickness={0.4}
+            fadeDistance={22}
             infiniteGrid
           />
         ) : null}
@@ -107,7 +107,7 @@ export function FragmentPreviewViewport({
             RIGHT: MOUSE.PAN,
           }}
         />
-        <Stats className="!left-auto !right-2 !top-2 !bottom-auto" />
+        <Stats className="!left-auto !right-2 !top-2 !bottom-auto !opacity-80" />
       </Canvas>
     </div>
   );
@@ -128,7 +128,7 @@ function PreviewObject({
     <group position={object.position} rotation={object.rotation} scale={object.scale}>
       <mesh>
         <boxGeometry args={[1, 1, 1]} />
-        <meshBasicMaterial color="#22d3ee" wireframe transparent opacity={0.85} />
+        <meshBasicMaterial color="#06b6d4" wireframe transparent opacity={0.75} />
         <Edges color="#67e8f9" />
       </mesh>
     </group>
@@ -153,7 +153,7 @@ function BoundsBox({
 
   return (
     <Box position={center} args={size}>
-      <meshBasicMaterial color="#a855f7" wireframe transparent opacity={0.35} />
+      <meshBasicMaterial color="#3b82f6" wireframe transparent opacity={0.25} />
     </Box>
   );
 }
@@ -164,7 +164,7 @@ function SceneLights({ lights }: { lights: SceneLight[] }) {
       <>
         <ambientLight intensity={0.45} />
         <directionalLight position={[4, 6, 5]} intensity={1.8} castShadow />
-        <pointLight position={[-3, 4, 2]} color="#22d3ee" intensity={0.8} />
+        <pointLight position={[-3, 4, 2]} color="#06b6d4" intensity={0.6} />
       </>
     );
   }
