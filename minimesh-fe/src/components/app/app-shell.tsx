@@ -1,12 +1,20 @@
 "use client";
 
-import { AuthScreen } from "@/components/auth/auth-screen";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/auth-provider";
 import { AppSidebar } from "./app-sidebar";
 import { ProjectsDashboard } from "../projects/projects-dashboard";
 
 export function AppShell() {
+  const router = useRouter();
   const { accessToken, isLoading, signOut, user } = useAuth();
+
+  useEffect(() => {
+    if (!isLoading && !accessToken) {
+      router.replace("/login");
+    }
+  }, [accessToken, isLoading, router]);
 
   if (isLoading) {
     return (
@@ -17,7 +25,11 @@ export function AppShell() {
   }
 
   if (!accessToken) {
-    return <AuthScreen />;
+    return (
+      <main className="grid min-h-dvh place-items-center bg-app text-primary">
+        <p className="text-sm text-secondary">Redirecting to login</p>
+      </main>
+    );
   }
 
   return (

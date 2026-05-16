@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { AuthScreen } from "@/components/auth/auth-screen";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useAppModal } from "@/components/modal/use-app-modal";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
@@ -45,6 +45,7 @@ interface GeneratorWorkspaceProps {
 }
 
 export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
+  const router = useRouter();
   const { accessToken, isLoading, signOut, user } = useAuth();
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<SceneChatMessage[]>([]);
@@ -71,6 +72,12 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
   const [isLibraryLoading, setIsLibraryLoading] = useState(false);
   const [isJsonOpen, setIsJsonOpen] = useState(false);
   const { confirm, modal, prompt: promptModal } = useAppModal();
+
+  useEffect(() => {
+    if (!isLoading && !accessToken) {
+      router.replace("/login");
+    }
+  }, [accessToken, isLoading, router]);
 
   const loadSavedScenes = useCallback(async () => {
     if (!accessToken) {
@@ -156,7 +163,11 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
   }
 
   if (!accessToken) {
-    return <AuthScreen />;
+    return (
+      <main className="grid min-h-dvh place-items-center bg-app text-primary">
+        <p className="text-sm text-secondary">Redirecting to login</p>
+      </main>
+    );
   }
 
   const authenticatedToken = accessToken;
@@ -694,7 +705,7 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
           <div className="flex items-center gap-3">
             <Link
               className="border border-ui px-3 py-2 text-xs font-semibold text-secondary transition hover:border-accent hover:text-primary"
-              href="/"
+              href="/dashboard"
             >
               Projects
             </Link>

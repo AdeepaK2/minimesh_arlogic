@@ -1,4 +1,4 @@
-import { GeneratorWorkspace } from "@/components/generator/generator-workspace";
+import { redirect } from "next/navigation";
 
 export default async function ProjectStudioPage({
   params,
@@ -7,5 +7,5 @@ export default async function ProjectStudioPage({
 }) {
   const { projectId } = await params;
 
-  return <GeneratorWorkspace projectId={projectId} />;
+  redirect(`/dashboard/projects/${projectId}`);
 }
