@@ -9,6 +9,7 @@ const navItems = [
   { href: "/admin/users", label: "Users", icon: UsersIcon },
   { href: "/admin/subscriptions", label: "Subscriptions", icon: SubIcon },
   { href: "/admin/pricing", label: "Pricing Plans", icon: PricingIcon },
+  { href: "/admin/scene-builder", label: "Scene Builder", icon: LibraryIcon },
   { href: "/admin/models", label: "AI Models", icon: ModelIcon },
   { href: "/admin/exports", label: "Exports", icon: ExportIcon },
   { href: "/admin/analytics", label: "Analytics", icon: ChartIcon },
@@ -103,6 +104,14 @@ function PricingIcon({ active }: { active: boolean }) {
     <svg className={`h-5 w-5 ${active ? "text-cyan-400" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.251 2.251 0 009.568 3z" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" />
+    </svg>
+  );
+}
+
+function LibraryIcon({ active }: { active: boolean }) {
+  return (
+    <svg className={`h-5 w-5 ${active ? "text-cyan-400" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6.429 9.75L2.25 12l4.179 2.25m0-4.5l5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12l-4.179 2.25m0 0l4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0l-5.571 3-5.571-3" />
     </svg>
   );
 }
