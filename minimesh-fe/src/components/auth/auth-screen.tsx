@@ -1,16 +1,36 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { FormEvent, useEffect, useState } from "react";
 import { useAuth } from "./auth-provider";
 
-export function AuthScreen() {
-  const { error: sessionError, isConfigured, signIn, signUp } = useAuth();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+interface AuthScreenProps {
+  initialMode?: "signin" | "signup";
+}
+
+export function AuthScreen({ initialMode = "signin" }: AuthScreenProps) {
+  const router = useRouter();
+  const {
+    accessToken,
+    error: sessionError,
+    isConfigured,
+    isLoading,
+    signIn,
+    signUp,
+  } = useAuth();
+  const [mode] = useState<"signin" | "signup">(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(sessionError);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading && accessToken) {
+      router.replace("/dashboard");
+    }
+  }, [accessToken, isLoading, router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -46,7 +66,9 @@ export function AuthScreen() {
           {mode === "signin" ? "Sign in" : "Create account"}
         </h1>
         <p className="mt-2 text-sm leading-6 text-secondary">
-          Sign in to generate, save, and version your 3D scenes.
+          {mode === "signin"
+            ? "Sign in to generate, save, and version your 3D scenes."
+            : "Create an account to start building versioned 3D scenes."}
         </p>
 
         {!isConfigured ? (
@@ -104,19 +126,14 @@ export function AuthScreen() {
           </button>
         </form>
 
-        <button
-          className="mt-4 text-sm font-medium text-accent transition hover:text-accent-strong"
-          type="button"
-          onClick={() => {
-            setMode(mode === "signin" ? "signup" : "signin");
-            setError(null);
-            setMessage(null);
-          }}
+        <Link
+          className="mt-4 block text-sm font-medium text-accent transition hover:text-accent-strong"
+          href={mode === "signin" ? "/signup" : "/login"}
         >
           {mode === "signin"
             ? "Need an account? Sign up"
             : "Already have an account? Sign in"}
-        </button>
+        </Link>
       </section>
     </main>
   );

@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { AuthScreen } from "@/components/auth/auth-screen";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useAppModal } from "@/components/modal/use-app-modal";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
-import { generateScene, refineEntity } from "@/lib/api/generation";
+import { editScene, generateScene, refineEntity } from "@/lib/api/generation";
 import { getProject } from "@/lib/api/projects";
 import {
   createSavedScene,
@@ -24,28 +24,32 @@ import {
   isStaticSceneEntity,
   resetEntityTransform,
 } from "@/lib/scene/entities";
+import { summarizeSceneChanges } from "@/lib/scene/change-summary";
 import type { ViewPreset } from "@/lib/scene/entities";
 import type {
   Project,
   SavedScene,
+  SceneChatMessage,
   SceneDocument,
   SceneEntityTransform,
   SceneVersion,
 } from "@/lib/scene/types";
 import { EntityPanel } from "./entity-panel";
-import { SceneLibrary } from "./scene-library";
-import { SceneViewport } from "../scene/scene-viewport";
 import { PromptPanel } from "./prompt-panel";
+import { SceneListPanel, SceneVersionsPanel } from "./scene-library";
+import { StudioSidebar } from "./studio-sidebar";
+import { SceneViewport } from "../scene/scene-viewport";
 
 interface GeneratorWorkspaceProps {
   projectId: string;
 }
 
 export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
+  const router = useRouter();
   const { accessToken, isLoading, signOut, user } = useAuth();
-  const [prompt, setPrompt] = useState(
-    "A tiny sci-fi rover with glowing wheels on a circular platform",
-  );
+  const [chatInput, setChatInput] = useState("");
+  const [chatMessages, setChatMessages] = useState<SceneChatMessage[]>([]);
+  const [lastAppliedPrompt, setLastAppliedPrompt] = useState("");
   const [scene, setScene] = useState<SceneDocument | null>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [savedScenes, setSavedScenes] = useState<SavedScene[]>([]);
@@ -69,6 +73,12 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
   const [isJsonOpen, setIsJsonOpen] = useState(false);
   const { confirm, modal, prompt: promptModal } = useAppModal();
 
+  useEffect(() => {
+    if (!isLoading && !accessToken) {
+      router.replace("/login");
+    }
+  }, [accessToken, isLoading, router]);
+
   const loadSavedScenes = useCallback(async () => {
     if (!accessToken) {
       return;
@@ -90,19 +100,27 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
   }, [accessToken, projectId]);
 
   const loadVersions = useCallback(
-    async (sceneId: string) => {
+    async (sceneId: string): Promise<SceneVersion[]> => {
       if (!accessToken) {
-        return;
+        return [];
       }
 
       try {
-        setVersions(await listSceneVersions(accessToken, projectId, sceneId));
+        const loadedVersions = await listSceneVersions(
+          accessToken,
+          projectId,
+          sceneId,
+        );
+
+        setVersions(loadedVersions);
+        return loadedVersions;
       } catch (caughtError) {
         setError(
           caughtError instanceof Error
             ? caughtError.message
             : "Could not load scene versions.",
         );
+        return [];
       }
     },
     [accessToken, projectId],
@@ -145,39 +163,108 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
   }
 
   if (!accessToken) {
-    return <AuthScreen />;
+    return (
+      <main className="grid min-h-dvh place-items-center bg-app text-primary">
+        <p className="text-sm text-secondary">Redirecting to login</p>
+      </main>
+    );
   }
 
   const authenticatedToken = accessToken;
 
-  async function handleGenerate() {
-    const trimmedPrompt = prompt.trim();
+  async function handleChatSubmit() {
+    const instruction = chatInput.trim();
 
-    if (trimmedPrompt.length < 3) {
-      setError("Enter a prompt with at least 3 characters.");
+    if (instruction.length < 3) {
+      setError("Enter a message with at least 3 characters.");
       return;
     }
 
+    const previousScene = scene;
+    const userMessageId = createMessageId();
+    const action = getChatAction(Boolean(previousScene), selectedEntityId);
+    const targetName =
+      action === "refine-entity"
+        ? (selectedEntity?.name ?? "Selected entity")
+        : action === "edit-scene"
+          ? (previousScene?.sceneName ?? "Current scene")
+          : "New scene";
+
+    setChatMessages((current) => [
+      ...current,
+      createChatMessage({
+        id: userMessageId,
+        role: "user",
+        content: instruction,
+        status: "pending",
+        action,
+        targetName,
+      }),
+    ]);
     setIsGenerating(true);
     setError(null);
     setWarnings([]);
-    setScene(null);
-    setActiveSceneId(null);
-    setSelectedEntityId(null);
-    setIsolatedEntityId(null);
-    setLockedEntityIds(new Set());
-    setUnlockedStaticEntityIds(new Set());
-    setVersions([]);
+    setChatInput("");
 
     try {
-      const result = await generateScene(trimmedPrompt, authenticatedToken);
+      const result = !previousScene
+        ? await generateScene(instruction, authenticatedToken)
+        : selectedEntityId
+          ? await refineEntity(
+              previousScene,
+              selectedEntityId,
+              instruction,
+              authenticatedToken,
+            )
+          : await editScene(previousScene, instruction, authenticatedToken);
+      const assistantSummary = createAssistantSummary({
+        hadScene: Boolean(previousScene),
+        sceneName: result.scene.sceneName,
+        selectedEntityName: selectedEntity?.name ?? null,
+      });
+      const changeSummary = summarizeSceneChanges(previousScene, result.scene);
+      const versionWarnings = [
+        `Assistant: ${assistantSummary}`,
+        changeSummary,
+        ...result.warnings,
+      ].slice(0, 12);
+      const saved = await autoSaveChatScene(
+        result.scene,
+        instruction,
+        versionWarnings,
+      );
+
       setScene(result.scene);
-      setWarnings(result.warnings);
+      setWarnings(versionWarnings);
+      setLastAppliedPrompt(instruction);
+      setChatMessages((current) => [
+        ...current.map((message) =>
+          message.id === userMessageId
+            ? { ...message, status: "applied" as const }
+            : message,
+        ),
+        createChatMessage({
+          role: "assistant",
+          content: `${assistantSummary}\n${changeSummary}`,
+          status: "applied",
+          action,
+          targetName,
+          versionNumber: saved.latestVersionNumber,
+        }),
+      ]);
     } catch (caughtError) {
+      setChatInput(instruction);
+      setChatMessages((current) =>
+        current.map((message) =>
+          message.id === userMessageId
+            ? { ...message, status: "failed" as const }
+            : message,
+        ),
+      );
       setError(
         caughtError instanceof Error
           ? caughtError.message
-          : "Scene generation failed.",
+          : "Scene chat action failed.",
       );
     } finally {
       setIsGenerating(false);
@@ -192,6 +279,7 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
 
     setIsSaving(true);
     setError(null);
+    const savePrompt = lastAppliedPrompt || chatInput.trim();
 
     try {
       if (activeSceneId) {
@@ -200,7 +288,7 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
           projectId,
           activeSceneId,
           {
-            prompt,
+            prompt: savePrompt,
             scene,
             warnings,
           },
@@ -230,7 +318,7 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
       const saved = await createSavedScene(authenticatedToken, projectId, {
         name: sceneName.trim(),
         description: scene.description,
-        prompt,
+        prompt: savePrompt,
         scene,
         warnings,
       });
@@ -247,6 +335,46 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
     } finally {
       setIsSaving(false);
     }
+  }
+
+  async function autoSaveChatScene(
+    nextScene: SceneDocument,
+    instruction: string,
+    nextWarnings: string[],
+  ): Promise<SavedScene> {
+    if (activeSceneId) {
+      const saved = await saveSceneVersion(
+        authenticatedToken,
+        projectId,
+        activeSceneId,
+        {
+          prompt: instruction,
+          scene: nextScene,
+          warnings: nextWarnings,
+        },
+      );
+
+      setSavedScenes((current) =>
+        current.map((savedScene) =>
+          savedScene.id === saved.id ? saved : savedScene,
+        ),
+      );
+      await loadVersions(activeSceneId);
+      return saved;
+    }
+
+    const saved = await createSavedScene(authenticatedToken, projectId, {
+      name: nextScene.sceneName,
+      description: nextScene.description,
+      prompt: instruction,
+      scene: nextScene,
+      warnings: nextWarnings,
+    });
+
+    setActiveSceneId(saved.id);
+    setSavedScenes((current) => [saved, ...current]);
+    await loadVersions(saved.id);
+    return saved;
   }
 
   async function handleExport() {
@@ -269,7 +397,8 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
 
   async function handleLoadScene(savedScene: SavedScene) {
     setScene(savedScene.latestScene);
-    setPrompt(savedScene.latestPrompt ?? "");
+    setChatInput("");
+    setLastAppliedPrompt(savedScene.latestPrompt ?? "");
     setWarnings([]);
     setError(null);
     setActiveSceneId(savedScene.id);
@@ -277,15 +406,25 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
     setIsolatedEntityId(null);
     setLockedEntityIds(new Set());
     setUnlockedStaticEntityIds(new Set());
-    await loadVersions(savedScene.id);
+    const loadedVersions = await loadVersions(savedScene.id);
+    const latestVersion =
+      loadedVersions.find(
+        (version) => version.versionNumber === savedScene.latestVersionNumber,
+      ) ?? loadedVersions[0];
+
+    setChatMessages(
+      latestVersion ? messagesFromVersion(latestVersion) : [],
+    );
   }
 
   function handleLoadVersion(version: SceneVersion) {
     setScene(version.scene);
-    setPrompt(version.prompt ?? "");
+    setChatInput("");
+    setLastAppliedPrompt(version.prompt ?? "");
     setWarnings(version.warnings);
     setError(null);
     setActiveSceneId(version.sceneId);
+    setChatMessages(messagesFromVersion(version));
     setSelectedEntityId(null);
     setIsolatedEntityId(null);
     setLockedEntityIds(new Set());
@@ -314,6 +453,8 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
 
       if (activeSceneId === sceneId) {
         setActiveSceneId(null);
+        setChatMessages([]);
+        setLastAppliedPrompt("");
         setSelectedEntityId(null);
         setIsolatedEntityId(null);
         setLockedEntityIds(new Set());
@@ -477,51 +618,69 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
 
   return (
     <main className="flex h-dvh overflow-hidden bg-app text-primary max-lg:flex-col">
-      <aside className="flex h-full w-[380px] min-w-[320px] max-w-[560px] resize-x flex-col overflow-y-auto border-r border-ui bg-panel max-lg:h-72 max-lg:w-full max-lg:max-w-none max-lg:resize-none max-lg:border-b max-lg:border-r-0">
-        <PromptPanel
-          canExport={Boolean(scene)}
-          canSave={Boolean(scene)}
-          canSaveVersion={Boolean(activeSceneId)}
-          error={error}
-          isGenerating={isBusy}
-          prompt={prompt}
-          userEmail={user?.email}
-          warnings={warnings}
-          onSave={handleSave}
-          onExport={handleExport}
-          onSignOut={() => void signOut()}
-          onPromptChange={setPrompt}
-          onSubmit={handleGenerate}
-        />
-
-        <SceneLibrary
-          activeSceneId={activeSceneId}
-          isBusy={isBusy}
-          scenes={savedScenes}
-          versions={versions}
-          onDeleteScene={handleDeleteScene}
-          onLoadScene={(savedScene) => void handleLoadScene(savedScene)}
-          onLoadVersion={handleLoadVersion}
-          onRefresh={() => void loadSavedScenes()}
-        />
-
-        <EntityPanel
-          entities={sceneEntities}
-          isBusy={isBusy}
-          isIsolating={Boolean(
-            selectedEntityId && isolatedEntityId === selectedEntityId,
-          )}
-          isTransformLocked={selectedTransformLocked}
-          selectedEntity={selectedEntity}
-          onFocus={handleFocusEntity}
-          onRefine={handleRefineEntity}
-          onResetTransform={handleResetEntityTransform}
-          onSelectEntity={(entityId) => handleSelectEntity(entityId)}
-          onToggleTransformLock={handleToggleTransformLock}
-          onToggleIsolate={handleToggleIsolate}
-          onTransformChange={handleTransformEntity}
-        />
-      </aside>
+      <StudioSidebar
+        userEmail={user?.email}
+        onSignOut={() => void signOut()}
+        agent={
+          <PromptPanel
+            embedded
+            canExport={Boolean(scene)}
+            canSave={Boolean(scene)}
+            canSaveVersion={Boolean(activeSceneId)}
+            chatInput={chatInput}
+            error={error}
+            isBusy={isBusy}
+            messages={chatMessages}
+            projectName={project?.name ?? null}
+            sceneName={scene?.sceneName ?? null}
+            selectedEntityName={selectedEntity?.name ?? null}
+            selectedEntityPartCount={selectedEntity?.objectIds.length ?? 0}
+            userEmail={user?.email}
+            warnings={warnings}
+            onSave={handleSave}
+            onExport={handleExport}
+            onSignOut={() => void signOut()}
+            onChatInputChange={setChatInput}
+            onSubmit={handleChatSubmit}
+          />
+        }
+        library={
+          <SceneListPanel
+            activeSceneId={activeSceneId}
+            isBusy={isBusy}
+            scenes={savedScenes}
+            onDeleteScene={handleDeleteScene}
+            onLoadScene={(savedScene) => void handleLoadScene(savedScene)}
+            onRefresh={() => void loadSavedScenes()}
+          />
+        }
+        versions={
+          <SceneVersionsPanel
+            activeSceneId={activeSceneId}
+            versions={versions}
+            onLoadVersion={handleLoadVersion}
+          />
+        }
+        entities={
+          <EntityPanel
+            embedded
+            entities={sceneEntities}
+            isBusy={isBusy}
+            isIsolating={Boolean(
+              selectedEntityId && isolatedEntityId === selectedEntityId,
+            )}
+            isTransformLocked={selectedTransformLocked}
+            selectedEntity={selectedEntity}
+            onFocus={handleFocusEntity}
+            onRefine={handleRefineEntity}
+            onResetTransform={handleResetEntityTransform}
+            onSelectEntity={(entityId) => handleSelectEntity(entityId)}
+            onToggleTransformLock={handleToggleTransformLock}
+            onToggleIsolate={handleToggleIsolate}
+            onTransformChange={handleTransformEntity}
+          />
+        }
+      />
 
       <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-ui bg-panel px-4 py-3">
@@ -539,14 +698,14 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
               </p>
             ) : !isGenerating ? (
               <p className="mt-1 max-w-3xl text-xs leading-5 text-secondary">
-                Write a prompt on the left and generate your first 3D scene.
+                The assistant chat is ready.
               </p>
             ) : null}
           </div>
           <div className="flex items-center gap-3">
             <Link
               className="border border-ui px-3 py-2 text-xs font-semibold text-secondary transition hover:border-accent hover:text-primary"
-              href="/"
+              href="/dashboard"
             >
               Projects
             </Link>
@@ -607,4 +766,110 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
       {modal}
     </main>
   );
+}
+
+function messagesFromVersion(version: SceneVersion): SceneChatMessage[] {
+  const action = version.scene.entities?.length
+    ? "edit-scene"
+    : "generate";
+  const targetName = version.scene.sceneName;
+  const messages: SceneChatMessage[] = [];
+
+  if (version.prompt) {
+    messages.push(
+      createChatMessage({
+        role: "user",
+        content: version.prompt,
+        status: "applied",
+        action,
+        targetName,
+        versionNumber: version.versionNumber,
+        createdAt: version.createdAt,
+      }),
+    );
+  }
+
+  if (version.warnings.length > 0) {
+    messages.push(
+      createChatMessage({
+        role: "assistant",
+        content: version.warnings
+          .map((warning) => warning.replace(/^Assistant:\s*/i, ""))
+          .join("\n"),
+        status: "applied",
+        action,
+        targetName,
+        versionNumber: version.versionNumber,
+        createdAt: version.createdAt,
+      }),
+    );
+  }
+
+  return messages;
+}
+
+function createAssistantSummary({
+  hadScene,
+  sceneName,
+  selectedEntityName,
+}: {
+  hadScene: boolean;
+  sceneName: string;
+  selectedEntityName: string | null;
+}): string {
+  if (!hadScene) {
+    return `Created ${sceneName}.`;
+  }
+
+  if (selectedEntityName) {
+    return `Updated ${selectedEntityName}.`;
+  }
+
+  return `Updated ${sceneName}.`;
+}
+
+function createChatMessage({
+  id,
+  role,
+  content,
+  status,
+  action,
+  targetName,
+  versionNumber,
+  createdAt,
+}: {
+  id?: string;
+  role: SceneChatMessage["role"];
+  content: string;
+  status: SceneChatMessage["status"];
+  action?: SceneChatMessage["action"];
+  targetName?: string;
+  versionNumber?: number;
+  createdAt?: string;
+}): SceneChatMessage {
+  return {
+    id: id ?? createMessageId(),
+    role,
+    content,
+    status,
+    action,
+    targetName,
+    versionNumber,
+    createdAt: createdAt ?? new Date().toISOString(),
+  };
+}
+
+function getChatAction(
+  hasScene: boolean,
+  selectedEntityId: string | null,
+): NonNullable<SceneChatMessage["action"]> {
+  if (!hasScene) {
+    return "generate";
+  }
+
+  return selectedEntityId ? "refine-entity" : "edit-scene";
+}
+
+function createMessageId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }

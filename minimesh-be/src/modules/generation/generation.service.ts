@@ -67,6 +67,82 @@ export class GenerationService {
     return this.generateSceneDirectly(prompt);
   }
 
+  async editScene(
+    scene: SceneDocument,
+    instruction: string,
+  ): Promise<GenerateSceneResult> {
+    const trustedScene = this.ensureEntities(SceneDocumentSchema.parse(scene));
+    const rawOutput = await this.textProvider.complete({
+      messages: [
+        {
+          role: 'system',
+          name: 'MiniMeshSceneEditor',
+          content: `${SCENE_SYSTEM_PROMPT}
+
+You are editing an existing MiniMesh SceneDocument.
+Return the full updated scene JSON, not a patch.
+Preserve ids for unchanged objects, entities, and lights.
+Preserve unrelated entities unless the user clearly asks to remove or replace them.
+If the input scene contains entities or environment, include valid updated entities or environment when useful.
+Never return code or markdown.`,
+        },
+        {
+          role: 'user',
+          name: 'user',
+          content: `Current scene:
+${JSON.stringify(trustedScene, null, 2)}
+
+Instruction:
+${instruction}
+
+Return only the complete updated MiniMesh scene JSON.`,
+        },
+      ],
+      maxCompletionTokens: 5200,
+      temperature: 0.2,
+    });
+    const firstAttempt = this.parseAndValidate(rawOutput);
+
+    if (firstAttempt.scene) {
+      return {
+        scene: this.applyVisualDefaults(instruction, firstAttempt.scene),
+        warnings: ['Edited scene from chat.'],
+      };
+    }
+
+    const repairedOutput = await this.textProvider.complete({
+      messages: [
+        {
+          role: 'system',
+          name: 'MiniMeshSceneEditor',
+          content: SCENE_SYSTEM_PROMPT,
+        },
+        {
+          role: 'user',
+          name: 'user',
+          content: createRepairPrompt(rawOutput, firstAttempt.errors),
+        },
+      ],
+      temperature: 0.2,
+    });
+    const repairAttempt = this.parseAndValidate(repairedOutput);
+
+    if (!repairAttempt.scene) {
+      throw new BadGatewayException({
+        message: 'MiniMax returned edited scene JSON that could not be validated.',
+        errors: repairAttempt.errors,
+      });
+    }
+
+    return {
+      scene: this.applyVisualDefaults(instruction, repairAttempt.scene),
+      warnings: [
+        'Edited scene from chat.',
+        'Initial MiniMax edit output was repaired before validation.',
+      ],
+    };
+  }
+
   async refineEntity(
     scene: SceneDocument,
     entityId: string,

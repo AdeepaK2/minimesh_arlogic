@@ -68,7 +68,7 @@ export function ProjectsDashboard({ accessToken }: ProjectsDashboardProps) {
         name: name.trim(),
       });
       setProjects((current) => [project, ...current]);
-      router.push(`/projects/${project.id}`);
+      router.push(`/dashboard/projects/${project.id}`);
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -169,7 +169,9 @@ export function ProjectsDashboard({ accessToken }: ProjectsDashboardProps) {
                 <button
                   className="block w-full text-left"
                   type="button"
-                  onClick={() => router.push(`/projects/${project.id}`)}
+                  onClick={() =>
+                    router.push(`/dashboard/projects/${project.id}`)
+                  }
                 >
                   <h3 className="text-lg font-semibold text-primary">
                     {project.name}

@@ -31,7 +31,7 @@ const controllerScene: SceneDocument = {
 describe('GenerationController', () => {
   let controller: GenerationController;
   let service: jest.Mocked<
-    Pick<GenerationService, 'generateScene' | 'refineEntity'>
+    Pick<GenerationService, 'generateScene' | 'editScene' | 'refineEntity'>
   >;
 
   beforeEach(async () => {
@@ -40,6 +40,15 @@ describe('GenerationController', () => {
         Promise.resolve({
           scene: controllerScene,
           warnings: [],
+        }),
+      ),
+      editScene: jest.fn<
+        Promise<GenerateSceneResult>,
+        [SceneDocument, string]
+      >(() =>
+        Promise.resolve({
+          scene: controllerScene,
+          warnings: ['Edited scene from chat.'],
         }),
       ),
       refineEntity: jest.fn<
@@ -83,6 +92,27 @@ describe('GenerationController', () => {
     expect(() => controller.generateScene({ prompt: '' })).toThrow(
       BadRequestException,
     );
+  });
+
+  it('passes a valid scene edit request to the generation service', async () => {
+    await controller.editScene({
+      scene: controllerScene,
+      instruction: 'add a glowing arch',
+    });
+
+    expect(service.editScene).toHaveBeenCalledWith(
+      controllerScene,
+      'add a glowing arch',
+    );
+  });
+
+  it('rejects an invalid scene edit instruction', () => {
+    expect(() =>
+      controller.editScene({
+        scene: controllerScene,
+        instruction: '',
+      }),
+    ).toThrow(BadRequestException);
   });
 
   it('passes a valid entity refinement request to the generation service', async () => {
