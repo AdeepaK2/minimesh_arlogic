@@ -1,7 +1,8 @@
 import type { GenerateSceneResponse, SceneDocument } from "@/lib/scene/types";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://localhost:3001";
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ??
+  "http://localhost:3001";
 
 export async function generateScene(
   prompt: string,
@@ -31,14 +32,17 @@ export async function refineEntity(
   instruction: string,
   accessToken: string,
 ): Promise<GenerateSceneResponse> {
-  const response = await safeFetch(`${API_BASE_URL}/generation/entity-refinement`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
+  const response = await safeFetch(
+    `${API_BASE_URL}/generation/entity-refinement`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ scene, entityId, instruction }),
     },
-    body: JSON.stringify({ scene, entityId, instruction }),
-  });
+  );
 
   if (!response.ok) {
     const message = await readErrorMessage(response);

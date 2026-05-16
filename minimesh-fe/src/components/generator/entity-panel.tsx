@@ -1,16 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import type { SceneEntity, SceneEntityTransform, Vector3Tuple } from "@/lib/scene/types";
+import type {
+  SceneEntity,
+  SceneEntityTransform,
+  Vector3Tuple,
+} from "@/lib/scene/types";
 
 interface EntityPanelProps {
   entities: SceneEntity[];
   isBusy: boolean;
   isIsolating: boolean;
+  isTransformLocked: boolean;
   selectedEntity: SceneEntity | null;
   onFocus: () => void;
   onRefine: (instruction: string) => Promise<void>;
+  onResetTransform: () => void;
   onSelectEntity: (entityId: string) => void;
+  onToggleTransformLock: () => void;
   onToggleIsolate: () => void;
   onTransformChange: (transform: SceneEntityTransform) => void;
 }
@@ -21,10 +28,13 @@ export function EntityPanel({
   entities,
   isBusy,
   isIsolating,
+  isTransformLocked,
   selectedEntity,
   onFocus,
   onRefine,
+  onResetTransform,
   onSelectEntity,
+  onToggleTransformLock,
   onToggleIsolate,
   onTransformChange,
 }: EntityPanelProps) {
@@ -122,10 +132,39 @@ export function EntityPanel({
             </button>
           </div>
 
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              className={`border px-3 py-2 text-xs font-semibold transition ${
+                isTransformLocked
+                  ? "border-warning bg-warning-soft text-warning"
+                  : "border-ui bg-field text-primary hover:border-accent"
+              }`}
+              type="button"
+              disabled={isBusy}
+              onClick={onToggleTransformLock}
+            >
+              {isTransformLocked ? "Unlock Transform" : "Lock Transform"}
+            </button>
+            <button
+              className="border border-ui bg-field px-3 py-2 text-xs font-semibold text-primary transition hover:border-accent disabled:cursor-not-allowed disabled:opacity-60"
+              type="button"
+              disabled={isBusy}
+              onClick={onResetTransform}
+            >
+              Reset Transform
+            </button>
+          </div>
+
           <TransformFields
+            disabled={isTransformLocked || isBusy}
             transform={selectedEntity.transform}
             onChange={onTransformChange}
           />
+          {isTransformLocked ? (
+            <p className="border border-warning bg-warning-soft px-3 py-2 text-xs leading-5 text-warning">
+              Transform is locked for this entity.
+            </p>
+          ) : null}
 
           <label className="grid gap-2 text-xs font-semibold text-primary">
             Refine selected entity
@@ -151,27 +190,35 @@ export function EntityPanel({
 }
 
 function TransformFields({
+  disabled,
   transform,
   onChange,
 }: {
+  disabled: boolean;
   transform: SceneEntityTransform;
   onChange: (transform: SceneEntityTransform) => void;
 }) {
   return (
     <div className="grid gap-3">
       <VectorField
+        disabled={disabled}
         label="Position"
+        step={0.05}
         value={transform.position}
         onChange={(position) => onChange({ ...transform, position })}
       />
       <VectorField
+        disabled={disabled}
         label="Rotation"
+        step={0.05}
         value={transform.rotation}
         onChange={(rotation) => onChange({ ...transform, rotation })}
       />
       <VectorField
+        disabled={disabled}
         label="Scale"
         min={0.01}
+        step={0.05}
         value={transform.scale}
         onChange={(scale) => onChange({ ...transform, scale })}
       />
@@ -180,13 +227,17 @@ function TransformFields({
 }
 
 function VectorField({
+  disabled,
   label,
   min,
+  step,
   value,
   onChange,
 }: {
+  disabled: boolean;
   label: string;
   min?: number;
+  step: number;
   value: Vector3Tuple;
   onChange: (value: Vector3Tuple) => void;
 }) {
@@ -195,17 +246,23 @@ function VectorField({
       <p className="text-xs font-semibold text-muted">{label}</p>
       <div className="mt-2 grid grid-cols-3 gap-2">
         {axes.map((axis, index) => (
-          <label key={axis} className="grid gap-1 text-[11px] uppercase text-muted">
+          <label
+            key={axis}
+            className="grid gap-1 text-[11px] uppercase text-muted"
+          >
             {axis}
             <input
-              className="min-w-0 border border-ui bg-field px-2 py-1 text-xs text-primary outline-none transition focus:border-accent"
+              className="min-w-0 border border-ui bg-field px-2 py-1 text-xs text-primary outline-none transition focus:border-accent disabled:cursor-not-allowed disabled:opacity-55"
+              disabled={disabled}
               min={min}
-              step={0.1}
+              step={step}
               type="number"
               value={Number(value[index].toFixed(2))}
               onChange={(event) => {
                 const next = [...value] as Vector3Tuple;
-                next[index] = Number(event.target.value);
+                const parsed = Number(event.target.value);
+                next[index] =
+                  min === undefined ? parsed : Math.max(min, parsed);
                 onChange(next);
               }}
             />

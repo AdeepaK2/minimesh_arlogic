@@ -16,12 +16,6 @@ interface PromptPanelProps {
   onSubmit: () => void;
 }
 
-const examples = [
-  "A tiny sci-fi rover with glowing wheels on a circular platform",
-  "A low-poly island with a lighthouse, rocks, and soft blue lights",
-  "A cute robot desk lamp with a bouncing antenna",
-];
-
 export function PromptPanel({
   canExport,
   canSave,
@@ -66,25 +60,12 @@ export function PromptPanel({
         <label className="flex flex-col gap-2">
           <span className="text-sm font-medium text-primary">Prompt</span>
           <textarea
-            className="min-h-36 resize-none border border-ui bg-field px-3 py-3 text-sm leading-6 text-primary outline-none transition focus:border-accent"
+            className="min-h-28 resize-none border border-ui bg-field px-3 py-3 text-sm leading-6 text-primary outline-none transition focus:border-accent"
             value={prompt}
             onChange={(event) => onPromptChange(event.target.value)}
             placeholder="Describe a 3D object or small scene..."
           />
         </label>
-
-        <div className="grid gap-2">
-          {examples.map((example) => (
-            <button
-              key={example}
-              className="border border-ui bg-field px-3 py-2 text-left text-xs leading-5 text-secondary transition hover:border-accent hover:text-primary"
-              type="button"
-              onClick={() => onPromptChange(example)}
-            >
-              {example}
-            </button>
-          ))}
-        </div>
 
         {error ? (
           <p className="border border-danger bg-danger-soft px-3 py-2 text-sm leading-6 text-danger">

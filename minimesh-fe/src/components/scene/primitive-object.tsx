@@ -50,7 +50,10 @@ export function PrimitiveObject({
     }
 
     if (object.animation.type === "orbit") {
-      const radius = Math.max(0.6, Math.hypot(basePosition[0], basePosition[2]));
+      const radius = Math.max(
+        0.6,
+        Math.hypot(basePosition[0], basePosition[2]),
+      );
       mesh.position.x = Math.cos(elapsed) * radius;
       mesh.position.z = Math.sin(elapsed) * radius;
     }
@@ -73,19 +76,26 @@ export function PrimitiveObject({
         event.stopPropagation();
         onSelect?.();
       }}
+      onPointerOut={() => {
+        document.body.style.cursor = "";
+      }}
+      onPointerOver={(event) => {
+        event.stopPropagation();
+        document.body.style.cursor = "pointer";
+      }}
     >
       <PrimitiveGeometry type={object.type} />
       <meshStandardMaterial
         color={object.material.color}
         emissive={
           isSelected
-            ? object.material.emissive ?? "#38bdf8"
-            : object.material.emissive ?? "#000000"
+            ? (object.material.emissive ?? "#38bdf8")
+            : (object.material.emissive ?? "#000000")
         }
         emissiveIntensity={
           isSelected
             ? Math.max(0.6, object.material.emissiveIntensity ?? 0)
-            : object.material.emissiveIntensity ?? 0
+            : (object.material.emissiveIntensity ?? 0)
         }
         metalness={object.material.metalness ?? 0}
         roughness={object.material.roughness ?? 0.55}
