@@ -28,9 +28,19 @@ export const AnimationTypeSchema = z.enum([
   'open_close',
 ]);
 
+export const SceneEntityTransformSchema = z.object({
+  position: Vector3Schema.default([0, 0, 0]),
+  rotation: Vector3Schema.default([0, 0, 0]),
+  scale: Vector3Schema.refine((values) => values.every((value) => value > 0), {
+    message: 'Scale values must be positive.',
+  }).default([1, 1, 1]),
+});
+
 export const SceneObjectSchema = z.object({
   id: z.string().min(1).max(80),
   name: z.string().min(1).max(120),
+  entityId: z.string().min(1).max(80).optional(),
+  role: z.string().min(1).max(80).optional(),
   type: SceneObjectTypeSchema,
   position: Vector3Schema,
   rotation: Vector3Schema,
@@ -77,10 +87,25 @@ export const SceneEnvironmentSchema = z.object({
   exposure: z.number().min(0.1).max(3).default(1),
 });
 
+export const SceneEntitySchema = z.object({
+  id: z.string().min(1).max(80),
+  name: z.string().min(1).max(120),
+  description: z.string().max(300).optional(),
+  sourceGroupId: z.string().min(1).max(80).optional(),
+  objectIds: z.array(z.string().min(1).max(80)).min(1).max(60),
+  tags: z.array(z.string().min(1).max(40)).max(12).default([]),
+  transform: SceneEntityTransformSchema.default({
+    position: [0, 0, 0],
+    rotation: [0, 0, 0],
+    scale: [1, 1, 1],
+  }),
+});
+
 export const SceneDocumentSchema = z.object({
   sceneName: z.string().min(1).max(120),
   description: z.string().max(600).optional(),
   objects: z.array(SceneObjectSchema).min(1).max(60),
+  entities: z.array(SceneEntitySchema).max(60).optional(),
   lights: z.array(SceneLightSchema).max(8).default([]),
   camera: SceneCameraSchema.default({
     position: [5, 4, 7],
@@ -92,6 +117,7 @@ export const SceneDocumentSchema = z.object({
 
 export type SceneDocument = z.infer<typeof SceneDocumentSchema>;
 export type SceneObject = z.infer<typeof SceneObjectSchema>;
+export type SceneEntity = z.infer<typeof SceneEntitySchema>;
 export type SceneLight = z.infer<typeof SceneLightSchema>;
 export type SceneCamera = z.infer<typeof SceneCameraSchema>;
 export type SceneEnvironment = z.infer<typeof SceneEnvironmentSchema>;

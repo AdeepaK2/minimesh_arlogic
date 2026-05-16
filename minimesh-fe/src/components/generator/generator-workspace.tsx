@@ -6,7 +6,7 @@ import { AuthScreen } from "@/components/auth/auth-screen";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useAppModal } from "@/components/modal/use-app-modal";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
-import { generateScene } from "@/lib/api/generation";
+import { generateScene, refineEntity } from "@/lib/api/generation";
 import { getProject } from "@/lib/api/projects";
 import {
   createSavedScene,
@@ -16,12 +16,23 @@ import {
   saveSceneVersion,
 } from "@/lib/api/scenes";
 import { exportSceneToGlb } from "@/lib/scene/export-glb";
+import {
+  applyEntityTransform,
+  applyViewPreset,
+  focusCameraOnEntity,
+  getSceneEntities,
+  isStaticSceneEntity,
+  resetEntityTransform,
+} from "@/lib/scene/entities";
+import type { ViewPreset } from "@/lib/scene/entities";
 import type {
   Project,
   SavedScene,
   SceneDocument,
+  SceneEntityTransform,
   SceneVersion,
 } from "@/lib/scene/types";
+import { EntityPanel } from "./entity-panel";
 import { SceneLibrary } from "./scene-library";
 import { SceneViewport } from "../scene/scene-viewport";
 import { PromptPanel } from "./prompt-panel";
@@ -40,12 +51,22 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
   const [savedScenes, setSavedScenes] = useState<SavedScene[]>([]);
   const [versions, setVersions] = useState<SceneVersion[]>([]);
   const [activeSceneId, setActiveSceneId] = useState<string | null>(null);
+  const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
+  const [isolatedEntityId, setIsolatedEntityId] = useState<string | null>(null);
+  const [lockedEntityIds, setLockedEntityIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [unlockedStaticEntityIds, setUnlockedStaticEntityIds] = useState<
+    Set<string>
+  >(() => new Set());
   const [warnings, setWarnings] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isRefiningEntity, setIsRefiningEntity] = useState(false);
   const [isLibraryLoading, setIsLibraryLoading] = useState(false);
+  const [isJsonOpen, setIsJsonOpen] = useState(false);
   const { confirm, modal, prompt: promptModal } = useAppModal();
 
   const loadSavedScenes = useCallback(async () => {
@@ -142,6 +163,10 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
     setWarnings([]);
     setScene(null);
     setActiveSceneId(null);
+    setSelectedEntityId(null);
+    setIsolatedEntityId(null);
+    setLockedEntityIds(new Set());
+    setUnlockedStaticEntityIds(new Set());
     setVersions([]);
 
     try {
@@ -215,7 +240,9 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
       await loadVersions(saved.id);
     } catch (caughtError) {
       setError(
-        caughtError instanceof Error ? caughtError.message : "Scene save failed.",
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Scene save failed.",
       );
     } finally {
       setIsSaving(false);
@@ -246,6 +273,10 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
     setWarnings([]);
     setError(null);
     setActiveSceneId(savedScene.id);
+    setSelectedEntityId(null);
+    setIsolatedEntityId(null);
+    setLockedEntityIds(new Set());
+    setUnlockedStaticEntityIds(new Set());
     await loadVersions(savedScene.id);
   }
 
@@ -255,6 +286,10 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
     setWarnings(version.warnings);
     setError(null);
     setActiveSceneId(version.sceneId);
+    setSelectedEntityId(null);
+    setIsolatedEntityId(null);
+    setLockedEntityIds(new Set());
+    setUnlockedStaticEntityIds(new Set());
   }
 
   async function handleDeleteScene(sceneId: string) {
@@ -279,6 +314,10 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
 
       if (activeSceneId === sceneId) {
         setActiveSceneId(null);
+        setSelectedEntityId(null);
+        setIsolatedEntityId(null);
+        setLockedEntityIds(new Set());
+        setUnlockedStaticEntityIds(new Set());
         setVersions([]);
       }
     } catch (caughtError) {
@@ -292,11 +331,153 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
     }
   }
 
-  const isBusy = isGenerating || isExporting || isSaving || isLibraryLoading;
+  function handleTransformEntity(transform: SceneEntityTransform) {
+    if (!scene || !selectedEntityId) {
+      return;
+    }
+
+    if (isSelectedTransformLocked()) {
+      return;
+    }
+
+    setScene(applyEntityTransform(scene, selectedEntityId, transform));
+  }
+
+  function handleResetEntityTransform() {
+    if (!scene || !selectedEntityId) {
+      return;
+    }
+
+    setScene(resetEntityTransform(scene, selectedEntityId));
+  }
+
+  function handleFocusEntity() {
+    if (!scene || !selectedEntityId) {
+      return;
+    }
+
+    setScene(focusCameraOnEntity(scene, selectedEntityId));
+  }
+
+  function handleToggleIsolate() {
+    if (!selectedEntityId) {
+      return;
+    }
+
+    setIsolatedEntityId((current) =>
+      current === selectedEntityId ? null : selectedEntityId,
+    );
+  }
+
+  function handleSelectEntity(entityId: string | null) {
+    setSelectedEntityId(entityId);
+
+    if (!entityId || (isolatedEntityId && isolatedEntityId !== entityId)) {
+      setIsolatedEntityId(null);
+    }
+  }
+
+  function handleToggleTransformLock() {
+    if (!selectedEntityId) {
+      return;
+    }
+
+    const entityId = selectedEntityId;
+    const isLocked = isSelectedTransformLocked();
+
+    if (isLocked) {
+      setLockedEntityIds((current) => {
+        const next = new Set(current);
+        next.delete(entityId);
+        return next;
+      });
+      setUnlockedStaticEntityIds((current) => {
+        const next = new Set(current);
+        next.add(entityId);
+        return next;
+      });
+      return;
+    }
+
+    setLockedEntityIds((current) => {
+      const next = new Set(current);
+      next.add(entityId);
+      return next;
+    });
+    setUnlockedStaticEntityIds((current) => {
+      const next = new Set(current);
+      next.delete(entityId);
+      return next;
+    });
+  }
+
+  function handleViewPreset(preset: ViewPreset) {
+    if (!scene) {
+      return;
+    }
+
+    setScene(applyViewPreset(scene, preset, selectedEntityId));
+  }
+
+  async function handleRefineEntity(instruction: string) {
+    if (!scene || !selectedEntityId) {
+      setError("Select an entity before refining.");
+      return;
+    }
+
+    setIsRefiningEntity(true);
+    setError(null);
+
+    try {
+      const result = await refineEntity(
+        scene,
+        selectedEntityId,
+        instruction,
+        authenticatedToken,
+      );
+      setScene(result.scene);
+      setWarnings(result.warnings);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Entity refinement failed.",
+      );
+    } finally {
+      setIsRefiningEntity(false);
+    }
+  }
+
+  const sceneEntities = scene ? getSceneEntities(scene) : [];
+  const selectedEntity =
+    sceneEntities.find((entity) => entity.id === selectedEntityId) ?? null;
+  const selectedEntityIsStatic =
+    scene && selectedEntity
+      ? isStaticSceneEntity(scene, selectedEntity)
+      : false;
+  const selectedTransformLocked =
+    selectedEntity !== null &&
+    (lockedEntityIds.has(selectedEntity.id) ||
+      (selectedEntityIsStatic &&
+        !unlockedStaticEntityIds.has(selectedEntity.id)));
+  const isBusy =
+    isGenerating ||
+    isExporting ||
+    isSaving ||
+    isLibraryLoading ||
+    isRefiningEntity;
+
+  function isSelectedTransformLocked() {
+    if (!scene || !selectedEntity) {
+      return false;
+    }
+
+    return selectedTransformLocked;
+  }
 
   return (
-    <main className="flex min-h-dvh bg-app text-primary max-lg:flex-col">
-      <aside className="flex w-[380px] min-w-[320px] max-w-[560px] resize-x flex-col overflow-auto border-r border-ui bg-panel max-lg:w-full max-lg:max-w-none max-lg:resize-none max-lg:border-b max-lg:border-r-0">
+    <main className="flex h-dvh overflow-hidden bg-app text-primary max-lg:flex-col">
+      <aside className="flex h-full w-[380px] min-w-[320px] max-w-[560px] resize-x flex-col overflow-y-auto border-r border-ui bg-panel max-lg:h-72 max-lg:w-full max-lg:max-w-none max-lg:resize-none max-lg:border-b max-lg:border-r-0">
         <PromptPanel
           canExport={Boolean(scene)}
           canSave={Boolean(scene)}
@@ -323,24 +504,41 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
           onLoadVersion={handleLoadVersion}
           onRefresh={() => void loadSavedScenes()}
         />
+
+        <EntityPanel
+          entities={sceneEntities}
+          isBusy={isBusy}
+          isIsolating={Boolean(
+            selectedEntityId && isolatedEntityId === selectedEntityId,
+          )}
+          isTransformLocked={selectedTransformLocked}
+          selectedEntity={selectedEntity}
+          onFocus={handleFocusEntity}
+          onRefine={handleRefineEntity}
+          onResetTransform={handleResetEntityTransform}
+          onSelectEntity={(entityId) => handleSelectEntity(entityId)}
+          onToggleTransformLock={handleToggleTransformLock}
+          onToggleIsolate={handleToggleIsolate}
+          onTransformChange={handleTransformEntity}
+        />
       </aside>
 
-      <section className="flex min-w-0 flex-1 flex-col">
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-ui bg-panel px-5 py-4">
+      <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+        <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-ui bg-panel px-4 py-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
               {project?.name ?? "Project Studio"}
             </p>
-            <h2 className="mt-1 text-lg font-semibold text-primary">
+            <h2 className="mt-1 text-base font-semibold text-primary">
               {scene?.sceneName ??
                 (isGenerating ? "Generating scene" : "No scene yet")}
             </h2>
             {scene?.description ? (
-              <p className="mt-1 max-w-3xl text-sm leading-6 text-secondary">
+              <p className="mt-1 line-clamp-2 max-w-3xl text-xs leading-5 text-secondary">
                 {scene.description}
               </p>
             ) : !isGenerating ? (
-              <p className="mt-1 max-w-3xl text-sm leading-6 text-secondary">
+              <p className="mt-1 max-w-3xl text-xs leading-5 text-secondary">
                 Write a prompt on the left and generate your first 3D scene.
               </p>
             ) : null}
@@ -353,17 +551,31 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
               Projects
             </Link>
             <div className="border border-ui px-3 py-2 text-xs font-medium text-secondary">
-              {activeSceneId ? "Saved" : "Draft"} / {scene?.objects.length ?? 0} objects
+              {activeSceneId ? "Saved" : "Draft"} / {scene?.objects.length ?? 0}{" "}
+              objects
+              {scene ? ` / ${sceneEntities.length} entities` : ""}
             </div>
             <ThemeToggle />
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 p-4">
+        <div className="min-h-0 flex-1 p-3">
           {scene ? (
-            <SceneViewport scene={scene} />
+            <SceneViewport
+              isolatedEntityId={isolatedEntityId}
+              scene={scene}
+              selectedEntityId={selectedEntityId}
+              selectedEntityName={selectedEntity?.name ?? null}
+              onClearSelection={() => handleSelectEntity(null)}
+              onFocusSelected={handleFocusEntity}
+              onSelectEntity={(entityId) => {
+                handleSelectEntity(entityId);
+              }}
+              onToggleIsolate={handleToggleIsolate}
+              onViewPreset={handleViewPreset}
+            />
           ) : (
-            <div className="grid h-full min-h-[420px] place-items-center border border-ui bg-panel">
+            <div className="grid h-full min-h-0 place-items-center border border-ui bg-panel">
               <p className="max-w-sm px-6 text-center text-sm leading-6 text-secondary">
                 {isGenerating
                   ? "Generating a fresh scene..."
@@ -373,18 +585,22 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
           )}
         </div>
 
-        <div className="grid max-h-52 border-t border-ui bg-panel lg:grid-cols-[260px_1fr]">
-          <div className="border-b border-ui px-5 py-4 lg:border-b-0 lg:border-r">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
-              Scene JSON
-            </p>
-            <p className="mt-2 text-sm leading-6 text-secondary">
-              Validated source document
-            </p>
-          </div>
-          <pre className="overflow-auto px-5 py-4 text-xs leading-5 text-secondary">
-            {scene ? JSON.stringify(scene, null, 2) : "{}"}
-          </pre>
+        <div className="shrink-0 border-t border-ui bg-panel">
+          <button
+            className="flex w-full items-center justify-between px-4 py-2 text-left text-xs font-semibold uppercase tracking-[0.16em] text-muted transition hover:text-primary"
+            type="button"
+            onClick={() => setIsJsonOpen((current) => !current)}
+          >
+            <span>Scene JSON</span>
+            <span className="normal-case tracking-normal text-secondary">
+              {isJsonOpen ? "Hide" : "Show"}
+            </span>
+          </button>
+          {isJsonOpen ? (
+            <pre className="max-h-44 overflow-auto border-t border-ui px-4 py-3 text-xs leading-5 text-secondary">
+              {scene ? JSON.stringify(scene, null, 2) : "{}"}
+            </pre>
+          ) : null}
         </div>
       </section>
 

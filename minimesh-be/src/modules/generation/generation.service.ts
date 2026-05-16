@@ -8,8 +8,12 @@ import {
 import { z } from 'zod';
 import { MINIMAX_TEXT_PROVIDER } from '../../ai/minimax/minimax.types';
 import type { MiniMaxTextProvider } from '../../ai/minimax/minimax.types';
-import { SceneDocument, SceneDocumentSchema } from '../../schemas/scene.schema';
-import type { SceneObject } from '../../schemas/scene.schema';
+import {
+  SceneDocument,
+  SceneDocumentSchema,
+  SceneObjectSchema,
+} from '../../schemas/scene.schema';
+import type { SceneEntity, SceneObject } from '../../schemas/scene.schema';
 import {
   createGenerationUserPrompt,
   createRepairPrompt,
@@ -30,6 +34,11 @@ interface ParsedSceneAttempt {
   scene?: SceneDocument;
   errors: string[];
 }
+
+const EntityRefinementOutputSchema = z.object({
+  objects: z.array(SceneObjectSchema).min(1).max(24),
+  warnings: z.array(z.string().max(200)).max(8).default([]),
+});
 
 @Injectable()
 export class GenerationService {
@@ -56,6 +65,81 @@ export class GenerationService {
     }
 
     return this.generateSceneDirectly(prompt);
+  }
+
+  async refineEntity(
+    scene: SceneDocument,
+    entityId: string,
+    instruction: string,
+  ): Promise<GenerateSceneResult> {
+    const trustedScene = this.ensureEntities(SceneDocumentSchema.parse(scene));
+    const entity = trustedScene.entities?.find((item) => item.id === entityId);
+
+    if (!entity) {
+      throw new BadGatewayException({
+        message: 'Selected entity was not found in the scene.',
+      });
+    }
+
+    const selectedObjectIds = new Set(entity.objectIds);
+    const selectedObjects = trustedScene.objects.filter((object) =>
+      selectedObjectIds.has(object.id),
+    );
+    const rawOutput = await this.textProvider.complete({
+      messages: [
+        {
+          role: 'system',
+          name: 'MiniMeshEntityRefiner',
+          content: `Return only valid JSON. Refine only the selected MiniMesh entity.
+Allowed object types: box, sphere, cylinder, cone, torus, plane.
+Preserve every selected object's id and entityId. Never return code.`,
+        },
+        {
+          role: 'user',
+          name: 'user',
+          content: `Selected entity:
+${JSON.stringify(entity, null, 2)}
+
+Selected objects:
+${JSON.stringify(selectedObjects, null, 2)}
+
+Instruction:
+${instruction}
+
+Return this exact shape:
+{
+  "objects": [updated selected objects only],
+  "warnings": []
+}`,
+        },
+      ],
+      maxCompletionTokens: 3200,
+      temperature: 0.2,
+    });
+    const refinement = this.parseEntityRefinement(rawOutput, selectedObjectIds);
+    const updatedById = new Map(
+      refinement.objects.map((object) => [
+        object.id,
+        {
+          ...object,
+          entityId,
+        },
+      ]),
+    );
+    const updatedScene = SceneDocumentSchema.parse({
+      ...trustedScene,
+      objects: trustedScene.objects.map(
+        (object) => updatedById.get(object.id) ?? object,
+      ),
+    });
+
+    return {
+      scene: this.applyVisualDefaults(instruction, updatedScene),
+      warnings: ['Refined selected entity.', ...refinement.warnings].slice(
+        0,
+        8,
+      ),
+    };
   }
 
   private async generateSceneDirectly(
@@ -210,9 +294,14 @@ export class GenerationService {
   }
 
   private applyDefaults(scene: SceneDocument): SceneDocument {
+    const sceneWithEntities = this.ensureEntities(scene);
+
     return {
-      ...scene,
-      lights: scene.lights.length > 0 ? scene.lights : FALLBACK_LIGHTS,
+      ...sceneWithEntities,
+      lights:
+        sceneWithEntities.lights.length > 0
+          ? sceneWithEntities.lights
+          : FALLBACK_LIGHTS,
     };
   }
 
@@ -269,6 +358,14 @@ export class GenerationService {
       ...value,
       id: this.toSafeId(value.id, `object-${index + 1}`),
       name,
+      entityId:
+        typeof value.entityId === 'string'
+          ? this.toSafeId(value.entityId, `entity-${index + 1}`)
+          : undefined,
+      role:
+        typeof value.role === 'string' && value.role.trim()
+          ? value.role.trim().slice(0, 80)
+          : undefined,
       type: this.normalizeObjectType(sourceType, name),
       position: this.normalizeVector(value.position, [0, 0, 0]),
       rotation: this.normalizeVector(value.rotation, [0, 0, 0]),
@@ -326,6 +423,75 @@ export class GenerationService {
       target: this.normalizeVector(value.target, [0, 0.5, 0]),
       fov: this.normalizeNumber(value.fov, 45, 25, 90),
     };
+  }
+
+  private parseEntityRefinement(
+    rawOutput: string,
+    allowedObjectIds: Set<string>,
+  ): z.infer<typeof EntityRefinementOutputSchema> {
+    try {
+      const parsed = JSON.parse(this.extractJsonObject(rawOutput)) as unknown;
+      const refinement = EntityRefinementOutputSchema.parse(parsed);
+      const invalidObject = refinement.objects.find(
+        (object) => !allowedObjectIds.has(object.id),
+      );
+
+      if (invalidObject) {
+        throw new Error(
+          `Refinement tried to update an object outside the selected entity: ${invalidObject.id}`,
+        );
+      }
+
+      return refinement;
+    } catch (error) {
+      throw new BadGatewayException({
+        message:
+          'MiniMax returned entity refinement JSON that could not be validated.',
+        errors: this.formatError(error),
+      });
+    }
+  }
+
+  private ensureEntities(scene: SceneDocument): SceneDocument {
+    if (scene.entities && scene.entities.length > 0) {
+      const entityIds = new Set(scene.entities.map((entity) => entity.id));
+
+      return {
+        ...scene,
+        objects: scene.objects.map((object) =>
+          object.entityId && entityIds.has(object.entityId)
+            ? object
+            : {
+                ...object,
+                entityId: object.entityId ?? object.id,
+              },
+        ),
+      };
+    }
+
+    const entities: SceneEntity[] = scene.objects.map((object) => ({
+      id: object.id,
+      name: object.name,
+      description: `${object.name} generated as a selectable scene entity.`,
+      sourceGroupId: object.id,
+      objectIds: [object.id],
+      tags: [object.type],
+      transform: {
+        position: [0, 0, 0],
+        rotation: [0, 0, 0],
+        scale: [1, 1, 1],
+      },
+    }));
+
+    return SceneDocumentSchema.parse({
+      ...scene,
+      objects: scene.objects.map((object) => ({
+        ...object,
+        entityId: object.entityId ?? object.id,
+        role: object.role ?? object.type,
+      })),
+      entities,
+    });
   }
 
   private normalizeObjectType(type: string, name: string): SceneObject['type'] {

@@ -30,7 +30,9 @@ const controllerScene: SceneDocument = {
 
 describe('GenerationController', () => {
   let controller: GenerationController;
-  let service: jest.Mocked<Pick<GenerationService, 'generateScene'>>;
+  let service: jest.Mocked<
+    Pick<GenerationService, 'generateScene' | 'refineEntity'>
+  >;
 
   beforeEach(async () => {
     service = {
@@ -38,6 +40,15 @@ describe('GenerationController', () => {
         Promise.resolve({
           scene: controllerScene,
           warnings: [],
+        }),
+      ),
+      refineEntity: jest.fn<
+        Promise<GenerateSceneResult>,
+        [SceneDocument, string, string]
+      >(() =>
+        Promise.resolve({
+          scene: controllerScene,
+          warnings: ['Refined selected entity.'],
         }),
       ),
     };
@@ -71,6 +82,20 @@ describe('GenerationController', () => {
   it('rejects an empty prompt', () => {
     expect(() => controller.generateScene({ prompt: '' })).toThrow(
       BadRequestException,
+    );
+  });
+
+  it('passes a valid entity refinement request to the generation service', async () => {
+    await controller.refineEntity({
+      scene: controllerScene,
+      entityId: 'object-1',
+      instruction: 'make it taller',
+    });
+
+    expect(service.refineEntity).toHaveBeenCalledWith(
+      controllerScene,
+      'object-1',
+      'make it taller',
     );
   });
 });
