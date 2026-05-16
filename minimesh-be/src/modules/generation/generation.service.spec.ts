@@ -3,6 +3,7 @@ import {
   MiniMaxChatRequest,
   MiniMaxTextProvider,
 } from '../../ai/minimax/minimax.types';
+import type { SceneDocument } from '../../schemas/scene.schema';
 import { GenerationService } from './generation.service';
 
 const validSceneJson = JSON.stringify({
@@ -34,8 +35,62 @@ describe('GenerationService', () => {
     expect(result.scene.lights.length).toBeGreaterThan(0);
     expect(result.warnings).toEqual([]);
     expect(provider.complete.mock.calls[0][0]).toMatchObject({
-      maxCompletionTokens: 3000,
+      maxCompletionTokens: 5000,
       temperature: 0.25,
+    });
+  });
+
+  it('normalizes common rich-scene model drift into valid primitives', () => {
+    const provider = createProvider([]);
+    const service = new GenerationService(provider);
+    const result = service.parseAndValidate(
+      JSON.stringify({
+        sceneName: 'Cyberpunk Street',
+        objects: [
+          {
+            id: 'hovering car',
+            name: 'Hovering sports car',
+            type: 'car',
+            position: ['0', 1, 0],
+            rotation: [0, 0, 0],
+            scale: [-2, 0.4, 1],
+            material: { color: 'neonPink', emissive: '#ff00ff' },
+          },
+          {
+            id: 'billboard',
+            name: 'Holographic billboard',
+            type: 'billboard',
+            position: [0, 3, -2],
+            rotation: [0, 0, 0],
+            scale: [2, 1, 0.1],
+            material: { color: 'purple' },
+          },
+        ],
+        lights: [
+          {
+            id: 'neon glow',
+            type: 'spot',
+            color: 'cyan',
+            intensity: '3',
+            position: [1, 4, 2],
+          },
+        ],
+        camera: { position: [5, 3, 6], target: [0, 1, 0], fov: '50' },
+      }),
+    );
+
+    expect(result.errors).toEqual([]);
+    expect(result.scene?.objects[0]).toMatchObject({
+      id: 'hovering-car',
+      type: 'box',
+      material: { color: '#ff2bd6' },
+      scale: [2, 0.4, 1],
+    });
+    expect(result.scene?.objects[1].type).toBe('plane');
+    expect(result.scene?.lights?.[0]).toMatchObject({
+      type: 'point',
+      color: '#22d3ee',
+      intensity: 3,
     });
   });
 
@@ -69,6 +124,109 @@ describe('GenerationService', () => {
     await expect(service.generateScene('make a scene')).rejects.toBeInstanceOf(
       BadGatewayException,
     );
+  });
+
+  it('uses the part pipeline for complex prompts when pipeline services are available', async () => {
+    const provider = createProvider([]);
+    const plannerService = {
+      shouldUsePipeline: jest.fn(() => true),
+      createPlan: jest.fn(() =>
+        Promise.resolve({
+          sceneName: 'Cyberpunk Street',
+          description: 'A rich neon street scene.',
+          styleKeywords: ['cyberpunk'],
+          cameraIntent: 'cinematic angle',
+          lightingIntent: 'blue and pink neon lighting',
+          maxObjectBudget: 36,
+          entityGroups: [
+            {
+              id: 'vehicle',
+              label: 'Hover car',
+              query: 'hover car',
+              priority: 10,
+            },
+          ],
+        }),
+      ),
+    };
+    const partGenerationService = {
+      generateParts: jest.fn(() =>
+        Promise.resolve([
+          {
+            groupId: 'vehicle',
+            groupLabel: 'Hover car',
+            source: 'template',
+            fragment: {
+              objects: [
+                {
+                  id: 'car-body',
+                  name: 'Car body',
+                  type: 'box',
+                  position: [0, 1, 0],
+                  rotation: [0, 0, 0],
+                  scale: [1, 0.4, 0.6],
+                  material: { color: '#111827' },
+                },
+              ],
+              lights: [],
+            },
+          },
+        ]),
+      ),
+    };
+    const pipelineScene: SceneDocument = {
+      sceneName: 'Prompt Scene',
+      objects: [
+        {
+          id: 'object-1',
+          name: 'Red sphere',
+          type: 'sphere',
+          position: [0, 1, 0],
+          rotation: [0, 0, 0],
+          scale: [1, 1, 1],
+          material: {
+            color: '#ef4444',
+          },
+        },
+      ],
+      lights: [],
+      camera: { position: [5, 4, 7], target: [0, 0, 0], fov: 45 },
+    };
+    const sceneAssemblyService = {
+      assemble: jest.fn(() => pipelineScene),
+    };
+    const lightingAgentService = {
+      enhanceScene: jest.fn((_prompt, _plan, scene: SceneDocument) => ({
+        ...scene,
+        environment: {
+          backgroundColor: '#07111f',
+          fogColor: '#0f172a',
+          fogNear: 14,
+          fogFar: 54,
+          exposure: 1.65,
+        },
+      })),
+      enhanceIfNeeded: jest.fn((_prompt, scene: SceneDocument) => scene),
+    };
+    const service = new GenerationService(
+      provider,
+      plannerService as never,
+      partGenerationService as never,
+      sceneAssemblyService as never,
+      lightingAgentService as never,
+    );
+
+    const result = await service.generateScene(
+      'Create a futuristic cyberpunk street with a hovering sports car, neon signs, buildings, and lamps.',
+    );
+
+    expect(result.scene.sceneName).toBe('Prompt Scene');
+    expect(result.scene.environment?.exposure).toBe(1.65);
+    expect(result.warnings).toEqual([
+      'Generated with template-assisted multi-part pipeline.',
+    ]);
+    expect(provider.complete.mock.calls).toHaveLength(0);
+    expect(lightingAgentService.enhanceScene).toHaveBeenCalledTimes(1);
   });
 });
 

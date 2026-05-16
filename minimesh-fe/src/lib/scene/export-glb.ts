@@ -68,6 +68,8 @@ function createMesh(object: SceneObject): Object3D {
     createGeometry(object),
     new MeshStandardMaterial({
       color: object.material.color,
+      emissive: object.material.emissive ?? "#000000",
+      emissiveIntensity: object.material.emissiveIntensity ?? 0,
       metalness: object.material.metalness ?? 0,
       roughness: object.material.roughness ?? 0.55,
     }),

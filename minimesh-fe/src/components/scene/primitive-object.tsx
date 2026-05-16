@@ -66,6 +66,8 @@ export function PrimitiveObject({ object }: PrimitiveObjectProps) {
       <PrimitiveGeometry type={object.type} />
       <meshStandardMaterial
         color={object.material.color}
+        emissive={object.material.emissive ?? "#000000"}
+        emissiveIntensity={object.material.emissiveIntensity ?? 0}
         metalness={object.material.metalness ?? 0}
         roughness={object.material.roughness ?? 0.55}
       />

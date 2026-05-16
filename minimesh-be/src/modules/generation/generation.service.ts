@@ -2,18 +2,24 @@ import {
   BadGatewayException,
   Inject,
   Injectable,
+  Optional,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { z } from 'zod';
 import { MINIMAX_TEXT_PROVIDER } from '../../ai/minimax/minimax.types';
 import type { MiniMaxTextProvider } from '../../ai/minimax/minimax.types';
 import { SceneDocument, SceneDocumentSchema } from '../../schemas/scene.schema';
+import type { SceneObject } from '../../schemas/scene.schema';
 import {
   createGenerationUserPrompt,
   createRepairPrompt,
   FALLBACK_LIGHTS,
   SCENE_SYSTEM_PROMPT,
 } from './generation.prompts';
+import { GenerationPlannerService } from './generation-planner.service';
+import { LightingAgentService } from './lighting-agent.service';
+import { PartGenerationService } from './part-generation.service';
+import { SceneAssemblyService } from './scene-assembly.service';
 
 export interface GenerateSceneResult {
   scene: SceneDocument;
@@ -30,9 +36,31 @@ export class GenerationService {
   constructor(
     @Inject(MINIMAX_TEXT_PROVIDER)
     private readonly textProvider: MiniMaxTextProvider,
+    @Optional()
+    private readonly plannerService?: GenerationPlannerService,
+    @Optional()
+    private readonly partGenerationService?: PartGenerationService,
+    @Optional()
+    private readonly sceneAssemblyService?: SceneAssemblyService,
+    @Optional()
+    private readonly lightingAgentService?: LightingAgentService,
   ) {}
 
   async generateScene(prompt: string): Promise<GenerateSceneResult> {
+    if (this.shouldUsePartPipeline(prompt)) {
+      const pipelineResult = await this.tryGenerateSceneWithParts(prompt);
+
+      if (pipelineResult) {
+        return pipelineResult;
+      }
+    }
+
+    return this.generateSceneDirectly(prompt);
+  }
+
+  private async generateSceneDirectly(
+    prompt: string,
+  ): Promise<GenerateSceneResult> {
     const rawOutput = await this.textProvider.complete({
       messages: [
         {
@@ -46,7 +74,7 @@ export class GenerationService {
           content: createGenerationUserPrompt(prompt),
         },
       ],
-      maxCompletionTokens: 3000,
+      maxCompletionTokens: 5000,
       temperature: 0.25,
     });
 
@@ -54,7 +82,7 @@ export class GenerationService {
 
     if (firstAttempt.scene) {
       return {
-        scene: this.applyDefaults(firstAttempt.scene),
+        scene: this.applyVisualDefaults(prompt, firstAttempt.scene),
         warnings: [],
       };
     }
@@ -85,15 +113,61 @@ export class GenerationService {
     }
 
     return {
-      scene: this.applyDefaults(repairAttempt.scene),
+      scene: this.applyVisualDefaults(prompt, repairAttempt.scene),
       warnings: ['Initial MiniMax output was repaired before validation.'],
     };
+  }
+
+  private shouldUsePartPipeline(prompt: string): boolean {
+    return Boolean(
+      this.plannerService &&
+      this.partGenerationService &&
+      this.sceneAssemblyService &&
+      this.plannerService.shouldUsePipeline(prompt),
+    );
+  }
+
+  private async tryGenerateSceneWithParts(
+    prompt: string,
+  ): Promise<GenerateSceneResult | undefined> {
+    try {
+      const plan = await this.plannerService?.createPlan(prompt);
+
+      if (!plan) {
+        return undefined;
+      }
+
+      const parts = await this.partGenerationService?.generateParts(
+        prompt,
+        plan,
+      );
+
+      if (!parts || parts.length === 0) {
+        return undefined;
+      }
+
+      const scene = this.sceneAssemblyService?.assemble(plan, parts);
+
+      if (!scene) {
+        return undefined;
+      }
+      const litScene =
+        this.lightingAgentService?.enhanceScene(prompt, plan, scene) ?? scene;
+
+      return {
+        scene: this.applyDefaults(litScene),
+        warnings: ['Generated with template-assisted multi-part pipeline.'],
+      };
+    } catch {
+      return undefined;
+    }
   }
 
   parseAndValidate(rawOutput: string): ParsedSceneAttempt {
     try {
       const parsed = JSON.parse(this.extractJsonObject(rawOutput)) as unknown;
-      const scene = SceneDocumentSchema.parse(parsed);
+      const normalized = this.normalizeSceneDocument(parsed);
+      const scene = SceneDocumentSchema.parse(normalized);
 
       return { scene, errors: [] };
     } catch (error) {
@@ -140,5 +214,297 @@ export class GenerationService {
       ...scene,
       lights: scene.lights.length > 0 ? scene.lights : FALLBACK_LIGHTS,
     };
+  }
+
+  private applyVisualDefaults(
+    prompt: string,
+    scene: SceneDocument,
+  ): SceneDocument {
+    const sceneWithLights = this.applyDefaults(scene);
+
+    return (
+      this.lightingAgentService?.enhanceIfNeeded(prompt, sceneWithLights) ??
+      sceneWithLights
+    );
+  }
+
+  private normalizeSceneDocument(value: unknown): unknown {
+    if (!this.isRecord(value)) {
+      return value;
+    }
+
+    const objects = Array.isArray(value.objects)
+      ? value.objects
+          .slice(0, 60)
+          .map((object, index) => this.normalizeSceneObject(object, index))
+      : value.objects;
+    const lights = Array.isArray(value.lights)
+      ? value.lights
+          .slice(0, 8)
+          .map((light, index) => this.normalizeSceneLight(light, index))
+      : value.lights;
+
+    return {
+      ...value,
+      sceneName:
+        typeof value.sceneName === 'string' && value.sceneName.trim()
+          ? value.sceneName
+          : 'Generated Scene',
+      objects,
+      lights,
+      camera: this.normalizeCamera(value.camera),
+    };
+  }
+
+  private normalizeSceneObject(value: unknown, index: number): unknown {
+    if (!this.isRecord(value)) {
+      return value;
+    }
+
+    const name = this.toStringValue(value.name, `Object ${index + 1}`);
+    const sourceType = this.toStringValue(value.type, name);
+    const material = this.isRecord(value.material) ? value.material : {};
+
+    return {
+      ...value,
+      id: this.toSafeId(value.id, `object-${index + 1}`),
+      name,
+      type: this.normalizeObjectType(sourceType, name),
+      position: this.normalizeVector(value.position, [0, 0, 0]),
+      rotation: this.normalizeVector(value.rotation, [0, 0, 0]),
+      scale: this.normalizeScale(value.scale),
+      material: {
+        color: this.normalizeColor(material.color),
+        metalness: this.normalizeUnit(material.metalness),
+        roughness: this.normalizeUnit(material.roughness, 0.55),
+        emissive:
+          typeof material.emissive === 'string'
+            ? this.normalizeColor(material.emissive)
+            : undefined,
+        emissiveIntensity:
+          material.emissiveIntensity === undefined
+            ? undefined
+            : this.normalizeNumber(material.emissiveIntensity, 0, 0, 5),
+      },
+      animation: this.normalizeAnimation(value.animation),
+    };
+  }
+
+  private normalizeSceneLight(value: unknown, index: number): unknown {
+    if (!this.isRecord(value)) {
+      return value;
+    }
+
+    const sourceType = this.toStringValue(value.type, 'point').toLowerCase();
+    const type = sourceType.includes('ambient')
+      ? 'ambient'
+      : sourceType.includes('directional') || sourceType.includes('sun')
+        ? 'directional'
+        : 'point';
+
+    return {
+      ...value,
+      id: this.toSafeId(value.id, `light-${index + 1}`),
+      type,
+      color: this.normalizeColor(value.color, '#ffffff'),
+      intensity: this.normalizeNumber(value.intensity, 1, 0, 10),
+      position:
+        type === 'ambient'
+          ? undefined
+          : this.normalizeVector(value.position, [4, 5, 4]),
+    };
+  }
+
+  private normalizeCamera(value: unknown): unknown {
+    if (!this.isRecord(value)) {
+      return value;
+    }
+
+    return {
+      ...value,
+      position: this.normalizeVector(value.position, [5, 4, 7]),
+      target: this.normalizeVector(value.target, [0, 0.5, 0]),
+      fov: this.normalizeNumber(value.fov, 45, 25, 90),
+    };
+  }
+
+  private normalizeObjectType(type: string, name: string): SceneObject['type'] {
+    const text = `${type} ${name}`.toLowerCase();
+
+    if (
+      text.includes('road') ||
+      text.includes('floor') ||
+      text.includes('ground')
+    ) {
+      return 'plane';
+    }
+
+    if (
+      /\bwheel\b/.test(text) ||
+      /\bring\b/.test(text) ||
+      /\btire\b/.test(text)
+    ) {
+      return 'torus';
+    }
+
+    if (
+      text.includes('pipe') ||
+      text.includes('pole') ||
+      text.includes('lamp') ||
+      text.includes('antenna') ||
+      text.includes('cylinder')
+    ) {
+      return 'cylinder';
+    }
+
+    if (text.includes('cone')) {
+      return 'cone';
+    }
+
+    if (
+      text.includes('sphere') ||
+      text.includes('orb') ||
+      text.includes('ball') ||
+      text.includes('light')
+    ) {
+      return 'sphere';
+    }
+
+    if (
+      text.includes('panel') ||
+      text.includes('sign') ||
+      text.includes('billboard') ||
+      text.includes('screen')
+    ) {
+      return 'plane';
+    }
+
+    return 'box';
+  }
+
+  private normalizeAnimation(value: unknown): unknown {
+    if (!this.isRecord(value)) {
+      return undefined;
+    }
+
+    const allowed = new Set([
+      'rotate',
+      'move',
+      'bounce',
+      'pulse',
+      'orbit',
+      'open_close',
+    ]);
+    const type = this.toStringValue(value.type, '');
+
+    if (!allowed.has(type)) {
+      return undefined;
+    }
+
+    return {
+      type,
+      axis: ['x', 'y', 'z'].includes(this.toStringValue(value.axis, ''))
+        ? value.axis
+        : undefined,
+      speed: this.normalizeNumber(value.speed, 1, 0.01, 10),
+      loop: typeof value.loop === 'boolean' ? value.loop : true,
+      target: typeof value.target === 'string' ? value.target : undefined,
+    };
+  }
+
+  private normalizeColor(value: unknown, fallback = '#38bdf8'): string {
+    if (typeof value !== 'string') {
+      return fallback;
+    }
+
+    if (/^#(?:[0-9a-fA-F]{3}){1,2}$/.test(value)) {
+      return value;
+    }
+
+    const namedColors: Record<string, string> = {
+      amber: '#f59e0b',
+      black: '#111111',
+      blue: '#38bdf8',
+      cyan: '#22d3ee',
+      green: '#22c55e',
+      grey: '#64748b',
+      gray: '#64748b',
+      magenta: '#d946ef',
+      neonblue: '#00d5ff',
+      neonpink: '#ff2bd6',
+      neonpurple: '#a855f7',
+      orange: '#f97316',
+      pink: '#ec4899',
+      purple: '#8b5cf6',
+      red: '#ef4444',
+      white: '#f8fafc',
+      yellow: '#facc15',
+    };
+    const key = value.toLowerCase().replace(/[^a-z]/g, '');
+
+    return namedColors[key] ?? fallback;
+  }
+
+  private normalizeScale(value: unknown): [number, number, number] {
+    return this.normalizeVector(value, [1, 1, 1]).map((item) =>
+      Math.max(0.01, Math.abs(item)),
+    ) as [number, number, number];
+  }
+
+  private normalizeVector(
+    value: unknown,
+    fallback: [number, number, number],
+  ): [number, number, number] {
+    if (!Array.isArray(value)) {
+      return fallback;
+    }
+
+    return [
+      this.normalizeNumber(value[0], fallback[0]),
+      this.normalizeNumber(value[1], fallback[1]),
+      this.normalizeNumber(value[2], fallback[2]),
+    ];
+  }
+
+  private normalizeUnit(value: unknown, fallback = 0): number {
+    return this.normalizeNumber(value, fallback, 0, 1);
+  }
+
+  private normalizeNumber(
+    value: unknown,
+    fallback: number,
+    min?: number,
+    max?: number,
+  ): number {
+    const number =
+      typeof value === 'number'
+        ? value
+        : typeof value === 'string'
+          ? Number(value)
+          : Number.NaN;
+
+    if (!Number.isFinite(number)) {
+      return fallback;
+    }
+
+    return Math.min(max ?? number, Math.max(min ?? number, number));
+  }
+
+  private toSafeId(value: unknown, fallback: string): string {
+    const text = this.toStringValue(value, fallback)
+      .trim()
+      .replace(/[^a-zA-Z0-9_-]/g, '-')
+      .replace(/-+/g, '-')
+      .slice(0, 80);
+
+    return text || fallback;
+  }
+
+  private toStringValue(value: unknown, fallback: string): string {
+    return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
   }
 }

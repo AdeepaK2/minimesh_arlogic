@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { SupabaseAuthGuard } from '../../common/auth/supabase-auth.guard';
 import type { SceneDocument } from '../../schemas/scene.schema';
 import { GenerationController } from './generation.controller';
 import { GenerateSceneResult, GenerationService } from './generation.service';
@@ -49,7 +50,12 @@ describe('GenerationController', () => {
           useValue: service,
         },
       ],
-    }).compile();
+    })
+      .overrideGuard(SupabaseAuthGuard)
+      .useValue({
+        canActivate: () => true,
+      })
+      .compile();
 
     controller = module.get<GenerationController>(GenerationController);
   });

@@ -9,9 +9,10 @@ Create a compact, renderable 3D scene using only primitive geometry.
 Schema rules:
 - Root keys must be exactly: sceneName, description, objects, lights, camera.
 - sceneName and description must be strings.
-- objects must contain 1 to 24 items for the MVP.
+- objects must contain 1 to 36 items for the MVP.
 - Every object must include id, name, type, position, rotation, scale, material.
 - Object type must be one of: box, sphere, cylinder, cone, torus, plane.
+- Complex subjects must be represented as multiple primitive parts. Example: a hovering car is boxes, cylinders, torus wheels, and light panels. Buildings/signs/billboards are boxes or planes.
 - position, rotation, and scale are [x, y, z] number arrays.
 - scale values must be positive.
 - material.color must be a hex color like #38bdf8.
@@ -20,6 +21,8 @@ Schema rules:
 - camera must include position, target, and fov.
 - Optional animation type must be rotate, move, bounce, pulse, orbit, or open_close.
 - Do not invent any other geometry, light, material, or animation types.
+- Do not use object types like car, building, sign, billboard, streetLight, road, pipe, crate, antenna, text, mesh, group, or glb. Convert them into the allowed primitive types.
+- Neon/glowing details are represented with bright material.color values and point lights. Do not add emissive, opacity, texture, font, text, or url fields.
 
 Use this exact shape:
 {

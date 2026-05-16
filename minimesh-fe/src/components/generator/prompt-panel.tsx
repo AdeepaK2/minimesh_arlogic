@@ -1,11 +1,17 @@
 "use client";
 
 interface PromptPanelProps {
+  canExport: boolean;
+  canSave: boolean;
+  canSaveVersion: boolean;
   error: string | null;
   isGenerating: boolean;
   prompt: string;
+  userEmail?: string;
   warnings: string[];
   onExport: () => void;
+  onSave: () => void;
+  onSignOut: () => void;
   onPromptChange: (value: string) => void;
   onSubmit: () => void;
 }
@@ -17,30 +23,50 @@ const examples = [
 ];
 
 export function PromptPanel({
+  canExport,
+  canSave,
+  canSaveVersion,
   error,
   isGenerating,
   prompt,
+  userEmail,
   warnings,
   onExport,
+  onSave,
+  onSignOut,
   onPromptChange,
   onSubmit,
 }: PromptPanelProps) {
   return (
-    <aside className="flex min-h-0 flex-col border-r border-zinc-800 bg-zinc-950">
-      <div className="border-b border-zinc-800 px-5 py-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-300">
-          MiniMesh
-        </p>
-        <h1 className="mt-2 text-2xl font-semibold text-zinc-50">
-          Prompt to 3D scene
-        </h1>
+    <section className="flex shrink-0 flex-col bg-panel">
+      <div className="border-b border-ui px-5 py-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+              MiniMesh
+            </p>
+            <h1 className="mt-2 text-2xl font-semibold text-primary">
+              Prompt to 3D scene
+            </h1>
+          </div>
+          <button
+            className="border border-ui px-3 py-2 text-xs font-semibold text-secondary transition hover:border-accent hover:text-primary"
+            type="button"
+            onClick={onSignOut}
+          >
+            Logout
+          </button>
+        </div>
+        {userEmail ? (
+          <p className="mt-3 truncate text-xs text-secondary">{userEmail}</p>
+        ) : null}
       </div>
 
       <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-5">
         <label className="flex flex-col gap-2">
-          <span className="text-sm font-medium text-zinc-200">Prompt</span>
+          <span className="text-sm font-medium text-primary">Prompt</span>
           <textarea
-            className="min-h-36 resize-none border border-zinc-700 bg-zinc-900 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition focus:border-cyan-400"
+            className="min-h-36 resize-none border border-ui bg-field px-3 py-3 text-sm leading-6 text-primary outline-none transition focus:border-accent"
             value={prompt}
             onChange={(event) => onPromptChange(event.target.value)}
             placeholder="Describe a 3D object or small scene..."
@@ -51,7 +77,7 @@ export function PromptPanel({
           {examples.map((example) => (
             <button
               key={example}
-              className="border border-zinc-800 bg-zinc-900 px-3 py-2 text-left text-xs leading-5 text-zinc-300 transition hover:border-cyan-500 hover:text-zinc-50"
+              className="border border-ui bg-field px-3 py-2 text-left text-xs leading-5 text-secondary transition hover:border-accent hover:text-primary"
               type="button"
               onClick={() => onPromptChange(example)}
             >
@@ -61,21 +87,21 @@ export function PromptPanel({
         </div>
 
         {error ? (
-          <p className="border border-red-900 bg-red-950/40 px-3 py-2 text-sm leading-6 text-red-200">
+          <p className="border border-danger bg-danger-soft px-3 py-2 text-sm leading-6 text-danger">
             {error}
           </p>
         ) : null}
 
         {warnings.length > 0 ? (
-          <div className="border border-amber-700 bg-amber-950/30 px-3 py-2 text-sm leading-6 text-amber-100">
+          <div className="border border-warning bg-warning-soft px-3 py-2 text-sm leading-6 text-warning">
             {warnings.join(" ")}
           </div>
         ) : null}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 border-t border-zinc-800 p-5">
+      <div className="grid grid-cols-2 gap-3 border-t border-ui p-5">
         <button
-          className="border border-cyan-400 bg-cyan-400 px-4 py-3 text-sm font-semibold text-zinc-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:border-zinc-700 disabled:bg-zinc-800 disabled:text-zinc-500"
+          className="border border-accent bg-accent px-4 py-3 text-sm font-semibold text-accent-contrast transition hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-60"
           type="button"
           disabled={isGenerating || prompt.trim().length < 3}
           onClick={onSubmit}
@@ -83,14 +109,22 @@ export function PromptPanel({
           {isGenerating ? "Generating" : "Generate"}
         </button>
         <button
-          className="border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm font-semibold text-zinc-100 transition hover:border-zinc-400 disabled:cursor-not-allowed disabled:text-zinc-500"
+          className="border border-ui bg-field px-4 py-3 text-sm font-semibold text-primary transition hover:border-accent disabled:cursor-not-allowed disabled:opacity-60"
           type="button"
-          disabled={isGenerating}
+          disabled={isGenerating || !canSave}
+          onClick={onSave}
+        >
+          {canSaveVersion ? "Save Version" : "Save"}
+        </button>
+        <button
+          className="col-span-2 border border-ui bg-field px-4 py-3 text-sm font-semibold text-primary transition hover:border-accent disabled:cursor-not-allowed disabled:opacity-60"
+          type="button"
+          disabled={isGenerating || !canExport}
           onClick={onExport}
         >
           Export GLB
         </button>
       </div>
-    </aside>
+    </section>
   );
 }

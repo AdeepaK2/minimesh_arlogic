@@ -41,6 +41,8 @@ export const SceneObjectSchema = z.object({
     color: HexColorSchema,
     metalness: z.number().min(0).max(1).optional(),
     roughness: z.number().min(0).max(1).optional(),
+    emissive: HexColorSchema.optional(),
+    emissiveIntensity: z.number().min(0).max(5).optional(),
   }),
   animation: z
     .object({
@@ -67,6 +69,14 @@ export const SceneCameraSchema = z.object({
   fov: z.number().min(25).max(90).default(45),
 });
 
+export const SceneEnvironmentSchema = z.object({
+  backgroundColor: HexColorSchema.default('#0b0f14'),
+  fogColor: HexColorSchema.default('#0b0f14'),
+  fogNear: z.number().min(0).max(100).default(18),
+  fogFar: z.number().min(1).max(200).default(42),
+  exposure: z.number().min(0.1).max(3).default(1),
+});
+
 export const SceneDocumentSchema = z.object({
   sceneName: z.string().min(1).max(120),
   description: z.string().max(600).optional(),
@@ -77,7 +87,11 @@ export const SceneDocumentSchema = z.object({
     target: [0, 0, 0],
     fov: 45,
   }),
+  environment: SceneEnvironmentSchema.optional(),
 });
 
 export type SceneDocument = z.infer<typeof SceneDocumentSchema>;
 export type SceneObject = z.infer<typeof SceneObjectSchema>;
+export type SceneLight = z.infer<typeof SceneLightSchema>;
+export type SceneCamera = z.infer<typeof SceneCameraSchema>;
+export type SceneEnvironment = z.infer<typeof SceneEnvironmentSchema>;

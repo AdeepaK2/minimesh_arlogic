@@ -1,8 +1,43 @@
 @import "tailwindcss";
 
 :root {
+  --background: #f7f8fb;
+  --foreground: #111827;
+  --panel: #ffffff;
+  --field: #f1f5f9;
+  --border: #d9e0ea;
+  --muted: #64748b;
+  --secondary: #475569;
+  --accent: #0891b2;
+  --accent-strong: #0e7490;
+  --accent-soft: #e0f7fb;
+  --accent-contrast: #ffffff;
+  --danger: #b91c1c;
+  --danger-soft: #fee2e2;
+  --warning: #92400e;
+  --warning-soft: #fef3c7;
+  --success: #166534;
+  --success-soft: #dcfce7;
+}
+
+:root[data-theme="dark"] {
   --background: #09090b;
   --foreground: #f4f4f5;
+  --panel: #111114;
+  --field: #18181b;
+  --border: #27272a;
+  --muted: #71717a;
+  --secondary: #a1a1aa;
+  --accent: #22d3ee;
+  --accent-strong: #67e8f9;
+  --accent-soft: #083344;
+  --accent-contrast: #082f49;
+  --danger: #fecaca;
+  --danger-soft: #450a0a;
+  --warning: #fde68a;
+  --warning-soft: #451a03;
+  --success: #bbf7d0;
+  --success-soft: #052e16;
 }
 
 @theme inline {
@@ -19,6 +54,103 @@ body {
 }
 
 button,
+input,
 textarea {
   border-radius: 6px;
+}
+
+.bg-app {
+  background: var(--background);
+}
+
+.bg-panel {
+  background: var(--panel);
+}
+
+.bg-field {
+  background: var(--field);
+}
+
+.bg-accent {
+  background: var(--accent);
+}
+
+.bg-accent-strong {
+  background: var(--accent-strong);
+}
+
+.bg-accent-soft {
+  background: var(--accent-soft);
+}
+
+.bg-danger-soft {
+  background: var(--danger-soft);
+}
+
+.bg-warning-soft {
+  background: var(--warning-soft);
+}
+
+.bg-success-soft {
+  background: var(--success-soft);
+}
+
+.border-ui {
+  border-color: var(--border);
+}
+
+.border-accent {
+  border-color: var(--accent);
+}
+
+.border-danger {
+  border-color: var(--danger);
+}
+
+.border-warning {
+  border-color: var(--warning);
+}
+
+.border-success {
+  border-color: var(--success);
+}
+
+.text-primary {
+  color: var(--foreground);
+}
+
+.text-secondary {
+  color: var(--secondary);
+}
+
+.text-muted {
+  color: var(--muted);
+}
+
+.text-accent {
+  color: var(--accent);
+}
+
+.text-accent-contrast {
+  color: var(--accent-contrast);
+}
+
+.text-danger {
+  color: var(--danger);
+}
+
+.text-warning {
+  color: var(--warning);
+}
+
+.text-success {
+  color: var(--success);
+}
+
+.hover\:bg-accent-strong:hover {
+  background: var(--accent-strong);
+}
+
+.hover\:text-accent-strong:hover {
+  color: var(--accent-strong);
 }
