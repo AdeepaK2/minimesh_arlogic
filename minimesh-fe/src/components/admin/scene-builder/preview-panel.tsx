@@ -33,39 +33,32 @@ export function PreviewPanel({
   onCenter,
 }: PreviewPanelProps) {
   const toggles = [
-    { label: "Wireframe", on: showWireframe, action: onToggleWireframe },
+    { label: "Wire", on: showWireframe, action: onToggleWireframe },
     { label: "Bounds", on: showBounds, action: onToggleBounds },
-    { label: "Lighting", on: showLighting, action: onToggleLighting },
+    { label: "Light", on: showLighting, action: onToggleLighting },
     { label: "Grid", on: showGrid, action: onToggleGrid },
   ];
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-cyan-500/15 bg-[#05070d]/90">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-400">
-            Live 3D preview
-          </p>
-          <p className="text-xs text-zinc-500">
-            {previewTitle ? (
-              <>
-                <span className="text-zinc-300">{previewTitle}</span>
-                {" · "}
-              </>
-            ) : null}
-            {objectCount} object{objectCount === 1 ? "" : "s"} · React Three Fiber
+    <div className="sb-panel min-h-0 flex-[2]">
+      <div className="sb-panel-header flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-landing-heading">Live preview</p>
+          <p className="truncate text-[10px] text-landing-subtle">
+            {previewTitle ? `${previewTitle} · ` : ""}
+            {objectCount} object{objectCount === 1 ? "" : "s"}
           </p>
         </div>
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           {toggles.map((toggle) => (
             <button
               key={toggle.label}
               type="button"
               onClick={toggle.action}
-              className={`rounded-lg px-2.5 py-1 text-[10px] font-semibold transition ${
+              className={`rounded-md px-2 py-1 text-[10px] font-medium transition ${
                 toggle.on
-                  ? "border border-cyan-500/40 bg-cyan-500/15 text-cyan-200"
-                  : "border border-white/10 text-zinc-500 hover:text-zinc-300"
+                  ? "admin-tab-active"
+                  : "border border-landing text-landing-subtle hover:bg-landing-hover hover:text-landing-heading"
               }`}
             >
               {toggle.label}
@@ -74,13 +67,13 @@ export function PreviewPanel({
           <button
             type="button"
             onClick={onCenter}
-            className="rounded-lg border border-white/10 px-2.5 py-1 text-[10px] font-semibold text-zinc-400 hover:border-cyan-500/30 hover:text-cyan-200"
+            className="rounded-md border border-landing px-2 py-1 text-[10px] font-medium text-landing-subtle hover:bg-landing-hover"
           >
             Center
           </button>
         </div>
       </div>
-      <div className="min-h-0 flex-1">
+      <div className="sb-viewport-frame">
         <FragmentPreviewViewport
           scene={scene}
           showWireframe={showWireframe}

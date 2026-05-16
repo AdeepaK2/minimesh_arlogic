@@ -8,11 +8,15 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="admin-mesh-bg flex min-h-dvh bg-[#0a0a0f] text-zinc-100">
-      <div className="hidden lg:block">
+    <div className="minimesh-admin admin-mesh-bg relative h-dvh overflow-hidden">
+      <div className="hero-glow pointer-events-none fixed inset-0 z-0" aria-hidden />
+
+      {/* Desktop: fixed sidebar */}
+      <div className="fixed inset-y-0 left-0 z-30 hidden lg:block">
         <AdminSidebar />
       </div>
 
+      {/* Mobile: overlay sidebar */}
       {sidebarOpen ? (
         <>
           <button
@@ -27,9 +31,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </>
       ) : null}
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      {/* Main column — offset for fixed sidebar on desktop */}
+      <div className="relative z-10 flex h-dvh min-w-0 flex-col lg:ml-64">
         <AdminTopbar onMenuToggle={() => setSidebarOpen((v) => !v)} />
-        <main className="flex-1 overflow-auto p-6 lg:p-8">{children}</main>
+        <main className="min-h-0 flex-1 overflow-y-auto p-6 lg:p-8">{children}</main>
       </div>
     </div>
   );

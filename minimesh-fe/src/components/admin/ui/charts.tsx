@@ -18,35 +18,41 @@ export function GlowLineChart({
   const h = height;
   const pad = 8;
 
-  const points = data
-    .map((v, i) => {
-      const x = pad + (i / (data.length - 1)) * (w - pad * 2);
-      const y = h - pad - ((v - min) / range) * (h - pad * 2);
-      return `${x},${y}`;
-    })
-    .join(" ");
+  const lastIndex = Math.max(data.length - 1, 1);
 
-  const areaPoints = `${pad},${h - pad} ${points} ${w - pad},${h - pad}`;
+  const pointCoords = data.map((v, i) => {
+    const x = pad + (i / lastIndex) * (w - pad * 2);
+    const y = h - pad - ((v - min) / range) * (h - pad * 2);
+    return `${x},${y}`;
+  });
+  const pointsPath = pointCoords.join(" ");
+  const areaPath = `${pad},${h - pad} ${pointsPath} ${w - pad},${h - pad}`;
 
   return (
-    <svg
-      viewBox={`0 0 ${w} ${h}`}
-      className={`w-full ${className}`}
-      preserveAspectRatio="none"
+    <div
+      className={`relative w-full overflow-hidden ${className}`}
+      style={{ height, minHeight: height, maxHeight: height }}
     >
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        className="block h-full w-full max-h-full max-w-full"
+        preserveAspectRatio="none"
+        aria-hidden
+      >
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="#22d3ee" stopOpacity="0" />
+          <stop offset="0%" stopColor="var(--admin-chart-cyan)" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="var(--admin-chart-cyan)" stopOpacity="0" />
         </linearGradient>
         <linearGradient id={`${gradientId}-stroke`} x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#22d3ee" />
-          <stop offset="100%" stopColor="#a78bfa" />
+          <stop offset="0%" stopColor="var(--admin-chart-cyan)" />
+          <stop offset="50%" stopColor="#3b82f6" />
+          <stop offset="100%" stopColor="var(--admin-chart-accent)" />
         </linearGradient>
       </defs>
-      <polygon points={areaPoints} fill={`url(#${gradientId})`} />
+      <polygon points={areaPath} fill={`url(#${gradientId})`} />
       <polyline
-        points={points}
+        points={pointsPath}
         fill="none"
         stroke={`url(#${gradientId}-stroke)`}
         strokeWidth="2"
@@ -54,6 +60,7 @@ export function GlowLineChart({
         strokeLinejoin="round"
       />
     </svg>
+    </div>
   );
 }
 
@@ -95,7 +102,14 @@ export function GlowDonutChart({ segments, size = 140 }: DonutProps) {
 
   return (
     <svg viewBox="0 0 100 100" width={size} height={size} className="shrink-0">
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="12" />
+      <circle
+        cx={cx}
+        cy={cy}
+        r={r}
+        fill="none"
+        className="admin-donut-track"
+        strokeWidth="12"
+      />
       {arcs}
     </svg>
   );
@@ -114,7 +128,7 @@ export function MiniBarChart({
       {data.map((v, i) => (
         <div
           key={i}
-          className="flex-1 rounded-t bg-gradient-to-t from-cyan-500/80 to-cyan-400/20 transition-all hover:from-cyan-400"
+          className="admin-bar flex-1 rounded-t transition-all"
           style={{ height: `${(v / max) * 100}%`, minHeight: 4 }}
         />
       ))}

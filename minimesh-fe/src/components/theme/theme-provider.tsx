@@ -10,54 +10,87 @@ import {
 } from "react";
 
 export type ThemeMode = "light" | "dark";
+export type ThemePreference = ThemeMode | "system";
 
 interface ThemeContextValue {
-  mode: ThemeMode | "system";
+  preference: ThemePreference;
+  resolvedTheme: ThemeMode;
+  setPreference: (preference: ThemePreference) => void;
+  /** @deprecated Use setPreference */
+  mode: ThemePreference;
+  /** @deprecated Use setPreference */
   setMode: (mode: ThemeMode) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
-const STORAGE_KEY = "minimesh-theme";
+export const THEME_STORAGE_KEY = "minimesh-theme";
+
+function readStoredPreference(): ThemePreference {
+  if (typeof window === "undefined") {
+    return "system";
+  }
+
+  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+  if (stored === "light" || stored === "dark" || stored === "system") {
+    return stored;
+  }
+
+  return "system";
+}
+
+function resolveTheme(preference: ThemePreference): ThemeMode {
+  if (preference === "light" || preference === "dark") {
+    return preference;
+  }
+
+  if (typeof window === "undefined") {
+    return "light";
+  }
+
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [mode, setModeState] = useState<ThemeMode | "system">(() => {
-    if (typeof window === "undefined") {
-      return "system";
-    }
-
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === "light" || stored === "dark") {
-      return stored;
-    }
-
-    return "system";
-  });
+  const [preference, setPreferenceState] =
+    useState<ThemePreference>(readStoredPreference);
+  const [resolvedTheme, setResolvedTheme] = useState<ThemeMode>(() =>
+    resolveTheme(readStoredPreference()),
+  );
 
   useEffect(() => {
     const root = document.documentElement;
     const media = window.matchMedia("(prefers-color-scheme: dark)");
 
     function applyTheme() {
-      const resolved = mode === "system" ? (media.matches ? "dark" : "light") : mode;
+      const resolved = resolveTheme(preference);
       root.dataset.theme = resolved;
       root.style.colorScheme = resolved;
+      setResolvedTheme(resolved);
     }
 
     applyTheme();
     media.addEventListener("change", applyTheme);
 
     return () => media.removeEventListener("change", applyTheme);
-  }, [mode]);
+  }, [preference]);
 
-  const value = useMemo(
+  const value = useMemo<ThemeContextValue>(
     () => ({
-      mode,
+      preference,
+      resolvedTheme,
+      setPreference: (nextPreference: ThemePreference) => {
+        window.localStorage.setItem(THEME_STORAGE_KEY, nextPreference);
+        setPreferenceState(nextPreference);
+      },
+      mode: preference,
       setMode: (nextMode: ThemeMode) => {
-        window.localStorage.setItem(STORAGE_KEY, nextMode);
-        setModeState(nextMode);
+        window.localStorage.setItem(THEME_STORAGE_KEY, nextMode);
+        setPreferenceState(nextMode);
       },
     }),
-    [mode],
+    [preference, resolvedTheme],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

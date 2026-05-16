@@ -80,7 +80,7 @@ export default function AdminAnalyticsPage() {
                 <span className="text-zinc-400">{c.label}</span>
                 <div className="mt-1 h-1.5 rounded-full bg-white/10">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-violet-500"
+                    className="admin-accent-bar h-full rounded-full"
                     style={{ width: `${c.value * 3}%` }}
                   />
                 </div>

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { AdminThemeInitScript } from "@/components/admin/admin-theme-init-script";
+import { AdminThemeProvider } from "@/components/admin/admin-theme-provider";
 import { AdminShell } from "@/components/admin/admin-shell";
 
 export const metadata: Metadata = {
@@ -11,5 +13,12 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <AdminShell>{children}</AdminShell>;
+  return (
+    <>
+      <AdminThemeInitScript />
+      <AdminThemeProvider>
+        <AdminShell>{children}</AdminShell>
+      </AdminThemeProvider>
+    </>
+  );
 }

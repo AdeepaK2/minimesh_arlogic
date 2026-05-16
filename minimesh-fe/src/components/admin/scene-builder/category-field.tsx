@@ -73,7 +73,7 @@ export function CategoryField({
             type="button"
             onClick={commitCustomCategory}
             disabled={!normalizeCategory(customDraft)}
-            className="rounded-lg border border-cyan-500/40 bg-cyan-500/15 px-3 py-1.5 text-[11px] font-semibold text-cyan-200 transition hover:bg-cyan-500/25 disabled:opacity-40"
+            className="admin-chip-active rounded-lg px-3 py-1.5 text-[11px] font-semibold disabled:opacity-40"
           >
             Add category
           </button>
@@ -86,12 +86,12 @@ export function CategoryField({
                 onChange(sortedOptions[0]);
               }
             }}
-            className="rounded-lg border border-white/10 px-3 py-1.5 text-[11px] text-zinc-400 hover:text-zinc-200"
+            className="rounded-lg border border-landing px-3 py-1.5 text-[11px] text-landing-subtle hover:text-landing-heading"
           >
             Cancel
           </button>
         </div>
-        <p className="text-[10px] text-zinc-500">
+        <p className="text-[10px] text-landing-subtle">
           Saved as a lowercase slug (letters, numbers, underscores · max 64 chars)
         </p>
       </div>
@@ -111,11 +111,11 @@ export function CategoryField({
         onChange={(event) => handleSelectChange(event.target.value)}
       >
         {sortedOptions.map((item) => (
-          <option key={item} value={item} className="bg-[#12121a]">
+          <option key={item} value={item} className="bg-landing-code">
             {item}
           </option>
         ))}
-        <option value="__custom__" className="bg-[#12121a]">
+        <option value="__custom__" className="bg-landing-code">
           + Add new category…
         </option>
       </select>
@@ -128,7 +128,7 @@ export function CategoryField({
       <button
         type="button"
         onClick={() => handleSelectChange("__custom__")}
-        className="w-fit text-left text-[10px] text-cyan-500/80 transition hover:text-cyan-300"
+        className="w-fit text-left text-[10px] text-landing-muted transition hover:text-cyan-400/90"
       >
         Add a category not in the list
       </button>

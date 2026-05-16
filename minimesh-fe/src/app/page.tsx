@@ -1,4 +1,4 @@
-﻿import { Navbar } from "@/components/landing/navbar";
+import { Navbar } from "@/components/landing/navbar";
 import {
   CtaBand,
   ExportSection,
@@ -13,7 +13,7 @@ import {
 
 export default function Home() {
   return (
-    <div className="min-h-full bg-[#0a0a0f] text-zinc-100">
+    <div className="landing-page min-h-full bg-landing">
       <Navbar />
       <main>
         <Hero />

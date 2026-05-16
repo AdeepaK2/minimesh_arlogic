@@ -66,7 +66,7 @@ export default function AdminSettingsPage() {
             </div>
             <button
               type="button"
-              className="mt-6 rounded-xl border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-300 hover:bg-cyan-500/10"
+              className="admin-btn-primary mt-6 rounded-xl px-4 py-2 text-sm font-semibold"
             >
               Save changes
             </button>

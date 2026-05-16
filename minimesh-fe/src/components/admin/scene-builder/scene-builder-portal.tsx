@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import {
@@ -28,6 +27,7 @@ import { autoSuggestTags, formatSceneJson } from "@/lib/admin/scene-builder-help
 import { validateSceneFragmentJson } from "@/lib/admin/validate-scene-fragment";
 import type { SceneDocument } from "@/lib/scene/types";
 import { ArchitectureStrip } from "./architecture-strip";
+import { CollapsibleCard } from "./collapsible-card";
 import { EditorPanel } from "./editor-panel";
 import { EmbeddingInspector } from "./embedding-inspector";
 import { LibraryPanel } from "./library-panel";
@@ -36,7 +36,7 @@ import { PreviewPanel } from "./preview-panel";
 import { SemanticFlowDiagram } from "./semantic-flow-diagram";
 
 export function SceneBuilderPortal() {
-  const { accessToken, isLoading: authLoading, user } = useAuth();
+  const { accessToken, user } = useAuth();
   const [templates, setTemplates] = useState<ObjectTemplateRecord[]>([]);
   const [semanticHits, setSemanticHits] = useState<ObjectTemplateSearchHit[]>([]);
   const [librarySearch, setLibrarySearch] = useState("");
@@ -355,66 +355,33 @@ export function SceneBuilderPortal() {
     );
   }
 
-  if (authLoading) {
-    return (
-      <div className="grid h-64 place-items-center text-sm text-zinc-500">
-        Initializing scene builder…
-      </div>
-    );
-  }
-
-  if (!accessToken) {
-    return (
-      <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-10 text-center">
-        <h2 className="text-lg font-semibold text-white">Scene Builder Portal</h2>
-        <p className="mt-2 text-sm text-zinc-400">
-          Sign in to manage MiniMesh AI&apos;s reusable 3D memory library.
-        </p>
-        <div className="mt-6 flex justify-center gap-3">
-          <Link
-            href="/login"
-            className="rounded-full bg-cyan-500 px-5 py-2 text-sm font-semibold text-[#041018]"
-          >
-            Sign in
-          </Link>
-          <Link href="/signup" className="rounded-full border border-white/15 px-5 py-2 text-sm text-zinc-300">
-            Sign up
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="-m-6 flex min-h-[calc(100dvh-4rem)] flex-col lg:-m-8">
-      <header className="border-b border-white/10 bg-[#06060a]/95 px-4 py-4 backdrop-blur-xl lg:px-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-cyan-400">
-              MiniMesh AI · Internal
+    <div className="scene-builder scene-builder-canvas flex h-full min-h-0 flex-col">
+      <header className="sb-header shrink-0 px-3 py-2.5 lg:px-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-landing-subtle">
+              Scene Builder
             </p>
-            <h1 className="mt-1 text-xl font-bold tracking-tight text-white sm:text-2xl">
-              Scene Builder Portal
+            <h1 className="text-base font-bold tracking-tight text-landing-heading sm:text-lg">
+              3D memory library
             </h1>
-            <p className="mt-1 max-w-2xl text-sm text-zinc-500">
-              Build a curated library of admin-authored 3D fragments for semantic
-              retrieval — {user?.email}
-            </p>
+            <p className="truncate text-[10px] text-landing-subtle">{user?.email}</p>
           </div>
           {(status || error) && (
             <p
-              className={`max-w-md text-sm ${error ? "text-rose-300" : "text-emerald-300"}`}
+              className={`max-w-sm shrink-0 text-right text-[10px] ${error ? "text-rose-400" : "text-emerald-500"}`}
             >
               {error ?? status}
             </p>
           )}
         </div>
-        <div className="mt-4">
+        <div className="mt-2">
           <SemanticFlowDiagram />
         </div>
       </header>
 
-      <div className="grid min-h-0 flex-1 gap-4 p-4 lg:grid-cols-[minmax(300px,360px)_1fr_minmax(280px,320px)] lg:p-5">
+      <div className="sb-workspace grid min-h-0 flex-1 gap-3 overflow-y-auto p-3 lg:grid-cols-[var(--sb-col-left)_minmax(0,1fr)_var(--sb-col-right)] lg:overflow-hidden lg:p-4">
         <EditorPanel
           name={name}
           category={category}
@@ -454,7 +421,7 @@ export function SceneBuilderPortal() {
           onLoadExample={handleLoadExample}
         />
 
-        <div className="flex min-h-[480px] min-w-0 flex-col gap-4">
+        <div className="flex min-h-0 min-w-0 flex-col gap-2 overflow-y-auto lg:max-h-full lg:overflow-hidden">
           <PreviewPanel
             scene={previewScene}
             previewTitle={previewTitle}
@@ -469,16 +436,30 @@ export function SceneBuilderPortal() {
             onToggleGrid={() => setShowGrid((v) => !v)}
             onCenter={handleGeneratePreview}
           />
-          <EmbeddingInspector
-            query={librarySearch || semanticKeywords || name}
-            nearest={semanticHits}
-          />
-          <MergeSimulator
-            templates={templates}
-            selectedIds={mergeSelection}
-            onToggle={toggleMergeId}
-            onSimulate={handleMergeSimulate}
-          />
+          <div className="grid shrink-0 gap-2 lg:grid-cols-2">
+            <CollapsibleCard
+              title="Embedding inspector"
+              subtitle="Nearest vectors for current query"
+              badge={semanticHits.length ? `${semanticHits.length} hits` : undefined}
+            >
+              <EmbeddingInspector
+                query={librarySearch || semanticKeywords || name}
+                nearest={semanticHits}
+              />
+            </CollapsibleCard>
+            <CollapsibleCard
+              title="Merge simulator"
+              subtitle="Combine library fragments"
+              badge={mergeSelection.length ? `${mergeSelection.length} selected` : undefined}
+            >
+              <MergeSimulator
+                templates={templates}
+                selectedIds={mergeSelection}
+                onToggle={toggleMergeId}
+                onSimulate={handleMergeSimulate}
+              />
+            </CollapsibleCard>
+          </div>
         </div>
 
         <LibraryPanel

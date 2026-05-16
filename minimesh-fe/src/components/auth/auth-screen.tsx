@@ -1,7 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { useAuth } from "./auth-provider";
 
@@ -9,8 +10,17 @@ interface AuthScreenProps {
   initialMode?: "signin" | "signup";
 }
 
+function safeRedirectPath(next: string | null): string {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) {
+    return "/dashboard";
+  }
+  return next;
+}
+
 export function AuthScreen({ initialMode = "signin" }: AuthScreenProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = safeRedirectPath(searchParams.get("next"));
   const {
     accessToken,
     error: sessionError,
@@ -28,9 +38,9 @@ export function AuthScreen({ initialMode = "signin" }: AuthScreenProps) {
 
   useEffect(() => {
     if (!isLoading && accessToken) {
-      router.replace("/dashboard");
+      router.replace(redirectTo);
     }
-  }, [accessToken, isLoading, router]);
+  }, [accessToken, isLoading, redirectTo, router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -57,69 +67,71 @@ export function AuthScreen({ initialMode = "signin" }: AuthScreenProps) {
   }
 
   return (
-    <main className="grid min-h-dvh place-items-center bg-app px-4 text-primary">
-      <section className="w-full max-w-md border border-ui bg-panel p-6 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
-          MiniMesh
+    <main className="minimesh-branded minimesh-mesh-bg relative flex min-h-dvh items-center justify-center px-4 py-12">
+      <div className="hero-glow pointer-events-none fixed inset-0" aria-hidden />
+      <section className="minimesh-glass-card relative z-10 w-full max-w-md rounded-2xl p-8">
+        <Link href="/" className="mb-6 flex items-center gap-2.5">
+          <Image src="/logo.svg" alt="" width={36} height={36} priority />
+          <span className="text-lg font-semibold tracking-tight text-landing-heading">
+            MiniMesh <span className="text-[var(--landing-accent)]">AI</span>
+          </span>
+        </Link>
+
+        <p className="minimesh-eyebrow">
+          {mode === "signin" ? "Welcome back" : "Get started"}
         </p>
-        <h1 className="mt-2 text-2xl font-semibold">
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-landing-heading">
           {mode === "signin" ? "Sign in" : "Create account"}
         </h1>
-        <p className="mt-2 text-sm leading-6 text-secondary">
+        <p className="mt-2 text-sm leading-relaxed text-landing-muted">
           {mode === "signin"
             ? "Sign in to generate, save, and version your 3D scenes."
             : "Create an account to start building versioned 3D scenes."}
         </p>
 
         {!isConfigured ? (
-          <p className="mt-5 border border-danger bg-danger-soft px-3 py-2 text-sm text-danger">
+          <p className="minimesh-alert-warn mt-5">
             Supabase frontend environment variables are missing.
           </p>
         ) : null}
 
         <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
-          <label className="grid gap-2 text-sm font-medium">
+          <label className="grid gap-2 text-sm font-medium text-landing-heading">
             Email
             <input
-              className="border border-ui bg-field px-3 py-3 text-primary outline-none transition focus:border-accent"
+              className="minimesh-input"
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
+              placeholder="you@company.com"
               required
             />
           </label>
 
-          <label className="grid gap-2 text-sm font-medium">
+          <label className="grid gap-2 text-sm font-medium text-landing-heading">
             Password
             <input
-              className="border border-ui bg-field px-3 py-3 text-primary outline-none transition focus:border-accent"
+              className="minimesh-input"
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
+              placeholder="At least 6 characters"
               minLength={6}
               required
             />
           </label>
 
-          {error ? (
-            <p className="border border-danger bg-danger-soft px-3 py-2 text-sm text-danger">
-              {error}
-            </p>
-          ) : null}
+          {error ? <p className="minimesh-alert-error">{error}</p> : null}
 
-          {message ? (
-            <p className="border border-success bg-success-soft px-3 py-2 text-sm text-success">
-              {message}
-            </p>
-          ) : null}
+          {message ? <p className="minimesh-alert-success">{message}</p> : null}
 
           <button
-            className="border border-accent bg-accent px-4 py-3 text-sm font-semibold text-accent-contrast transition hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-60"
+            className="minimesh-btn-primary"
             type="submit"
             disabled={!isConfigured || isSubmitting}
           >
             {isSubmitting
-              ? "Please wait"
+              ? "Please wait…"
               : mode === "signin"
                 ? "Sign in"
                 : "Create account"}
@@ -127,12 +139,19 @@ export function AuthScreen({ initialMode = "signin" }: AuthScreenProps) {
         </form>
 
         <Link
-          className="mt-4 block text-sm font-medium text-accent transition hover:text-accent-strong"
+          className="mt-6 block text-center text-sm font-medium text-[var(--landing-accent)] transition hover:brightness-110"
           href={mode === "signin" ? "/signup" : "/login"}
         >
           {mode === "signin"
             ? "Need an account? Sign up"
             : "Already have an account? Sign in"}
+        </Link>
+
+        <Link
+          href="/"
+          className="mt-4 block text-center text-xs text-landing-subtle transition hover:text-landing-heading"
+        >
+          ← Back to home
         </Link>
       </section>
     </main>

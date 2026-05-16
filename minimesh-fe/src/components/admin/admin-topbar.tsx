@@ -1,16 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { AdminThemeToggle } from "@/components/admin/admin-theme-toggle";
 
 export function AdminTopbar({ onMenuToggle }: { onMenuToggle?: () => void }) {
   const [profileOpen, setProfileOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0a0a0f]/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 shrink-0 border-b border-landing bg-landing-surface backdrop-blur-xl">
       <div className="flex h-16 items-center gap-4 px-6">
         <div className="relative flex-1 max-w-md">
           <svg
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-landing-subtle"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -21,18 +22,22 @@ export function AdminTopbar({ onMenuToggle }: { onMenuToggle?: () => void }) {
           <input
             type="search"
             placeholder="Search users, tickets, models..."
-            className="h-10 w-full rounded-xl border border-white/10 bg-white/[0.04] pl-10 pr-4 text-sm text-white placeholder:text-zinc-600 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+            className="minimesh-input h-10 pl-10 text-sm placeholder:text-landing-subtle"
           />
         </div>
 
-        <div className="hidden items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 sm:flex">
-          <span className="admin-pulse h-2 w-2 rounded-full bg-emerald-400" />
-          <span className="text-xs font-medium text-emerald-300">All systems operational</span>
+        <AdminThemeToggle className="shrink-0" />
+
+        <div className="admin-status-pill hidden items-center gap-2 rounded-full border px-3 py-1.5 md:flex">
+          <span className="admin-pulse admin-status-pill-dot h-2 w-2 rounded-full" />
+          <span className="admin-status-pill-text text-xs font-medium">
+            All systems operational
+          </span>
         </div>
 
         <button
           type="button"
-          className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 text-zinc-400 transition hover:border-cyan-500/30 hover:text-white"
+          className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-landing text-landing-muted transition hover:border-cyan-500/30 hover:text-landing-heading"
           aria-label="Notifications"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -45,24 +50,24 @@ export function AdminTopbar({ onMenuToggle }: { onMenuToggle?: () => void }) {
           <button
             type="button"
             onClick={() => setProfileOpen((v) => !v)}
-            className="flex items-center gap-2 rounded-xl border border-white/10 py-1.5 pl-1.5 pr-3 transition hover:border-cyan-500/30"
+            className="flex items-center gap-2 rounded-xl border border-landing py-1.5 pl-1.5 pr-3 transition hover:border-cyan-500/30"
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-violet-500 text-xs font-bold text-white">
+            <span className="admin-avatar flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white">
               AD
             </span>
-            <span className="hidden text-sm font-medium text-zinc-200 sm:block">
+            <span className="hidden text-sm font-medium text-landing-heading sm:block">
               Admin
             </span>
           </button>
           {profileOpen && (
-            <div className="absolute right-0 mt-2 w-48 rounded-xl border border-white/10 bg-[#12121a] py-1 shadow-xl">
-              <button type="button" className="block w-full px-4 py-2 text-left text-sm text-zinc-300 hover:bg-white/5">
+            <div className="minimesh-glass-card absolute right-0 mt-2 w-48 rounded-xl py-1">
+              <button type="button" className="block w-full px-4 py-2 text-left text-sm text-landing-muted hover:bg-landing-hover">
                 Profile
               </button>
-              <button type="button" className="block w-full px-4 py-2 text-left text-sm text-zinc-300 hover:bg-white/5">
+              <button type="button" className="block w-full px-4 py-2 text-left text-sm text-landing-muted hover:bg-landing-hover">
                 Security
               </button>
-              <button type="button" className="block w-full px-4 py-2 text-left text-sm text-rose-400 hover:bg-white/5">
+              <button type="button" className="block w-full px-4 py-2 text-left text-sm text-rose-400 hover:bg-landing-hover">
                 Sign out
               </button>
             </div>
@@ -71,7 +76,7 @@ export function AdminTopbar({ onMenuToggle }: { onMenuToggle?: () => void }) {
 
         <button
           type="button"
-          className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 text-zinc-400 lg:hidden"
+          className="flex h-10 w-10 items-center justify-center rounded-xl border border-landing text-landing-muted lg:hidden"
           aria-label="Toggle sidebar"
           onClick={onMenuToggle}
         >

@@ -15,12 +15,12 @@ export function Navbar() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/10 bg-[#0a0a0f]/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b border-landing bg-landing-surface backdrop-blur-xl">
       <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
         <Link href="/" className="flex items-center gap-2.5">
           <Image src="/logo.svg" alt="" width={36} height={36} priority />
-          <span className="text-lg font-semibold tracking-tight text-white">
-            MiniMesh <span className="text-cyan-400">AI</span>
+          <span className="text-lg font-semibold tracking-tight text-landing-heading">
+            MiniMesh <span className="text-[var(--landing-accent)]">AI</span>
           </span>
         </Link>
 
@@ -29,7 +29,7 @@ export function Navbar() {
             <li key={link.href}>
               <a
                 href={link.href}
-                className="text-sm text-zinc-400 transition-colors hover:text-white"
+                className="text-sm text-landing-muted transition-colors hover:text-landing-heading"
               >
                 {link.label}
               </a>
@@ -40,21 +40,21 @@ export function Navbar() {
         <div className="hidden items-center gap-3 md:flex">
           <Link
             href="/login"
-            className="rounded-full px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:text-white"
+            className="rounded-full px-4 py-2 text-sm font-medium text-landing-muted transition-colors hover:text-landing-heading"
           >
-            Sign in
+            Login
           </Link>
           <Link
-            href="/dashboard"
+            href="/signup"
             className="rounded-full bg-gradient-to-r from-cyan-500 to-violet-500 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 transition hover:brightness-110"
           >
-            Start creating
+            Sign up
           </Link>
         </div>
 
         <button
           type="button"
-          className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 text-zinc-300 md:hidden"
+          className="flex h-10 w-10 items-center justify-center rounded-lg border border-landing text-landing-muted md:hidden"
           aria-expanded={open}
           aria-label={open ? "Close menu" : "Open menu"}
           onClick={() => setOpen((v) => !v)}
@@ -72,13 +72,13 @@ export function Navbar() {
       </nav>
 
       {open && (
-        <div className="border-t border-white/10 bg-[#0a0a0f] px-6 py-4 md:hidden">
+        <div className="border-t border-landing bg-landing px-6 py-4 md:hidden">
           <ul className="flex flex-col gap-3">
             {navLinks.map((link) => (
               <li key={link.href}>
                 <a
                   href={link.href}
-                  className="block py-2 text-sm text-zinc-300"
+                  className="block py-2 text-sm text-landing-muted"
                   onClick={() => setOpen(false)}
                 >
                   {link.label}
@@ -86,20 +86,20 @@ export function Navbar() {
               </li>
             ))}
           </ul>
-          <div className="mt-4 flex flex-col gap-2 border-t border-white/10 pt-4">
+          <div className="mt-4 flex flex-col gap-2 border-t border-landing pt-4">
             <Link
               href="/login"
-              className="py-2 text-center text-sm text-zinc-300"
+              className="py-2 text-center text-sm text-landing-muted"
               onClick={() => setOpen(false)}
             >
-              Sign in
+              Login
             </Link>
             <Link
-              href="/dashboard"
+              href="/signup"
               className="rounded-full bg-gradient-to-r from-cyan-500 to-violet-500 py-3 text-center text-sm font-semibold text-white"
               onClick={() => setOpen(false)}
             >
-              Start creating
+              Sign up
             </Link>
           </div>
         </div>
