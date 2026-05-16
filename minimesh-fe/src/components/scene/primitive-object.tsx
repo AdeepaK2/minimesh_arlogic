@@ -1,6 +1,6 @@
 "use client";
 
-import { useFrame } from "@react-three/fiber";
+import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { Edges } from "@react-three/drei";
 import { useRef } from "react";
 import type { Mesh } from "three";
@@ -9,7 +9,7 @@ import type { SceneObject } from "@/lib/scene/types";
 interface PrimitiveObjectProps {
   isSelected?: boolean;
   object: SceneObject;
-  onSelect?: () => void;
+  onSelect?: (event: ThreeEvent<MouseEvent>) => void;
 }
 
 export function PrimitiveObject({
@@ -74,7 +74,7 @@ export function PrimitiveObject({
       receiveShadow
       onClick={(event) => {
         event.stopPropagation();
-        onSelect?.();
+        onSelect?.(event);
       }}
       onPointerOut={() => {
         document.body.style.cursor = "";

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { SceneDocumentSchema } from '../../../schemas/scene.schema';
+import { GenerationUsageSchema } from '../../generation/generation-context.types';
 
 export const CreateSceneRequestSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -7,12 +8,14 @@ export const CreateSceneRequestSchema = z.object({
   prompt: z.string().trim().max(1200).optional(),
   scene: SceneDocumentSchema,
   warnings: z.array(z.string()).max(12).default([]),
+  usage: GenerationUsageSchema.optional(),
 });
 
 export const SaveSceneVersionRequestSchema = z.object({
   prompt: z.string().trim().max(1200).optional(),
   scene: SceneDocumentSchema,
   warnings: z.array(z.string()).max(12).default([]),
+  usage: GenerationUsageSchema.optional(),
 });
 
 export const UpdateSceneRequestSchema = z.object({

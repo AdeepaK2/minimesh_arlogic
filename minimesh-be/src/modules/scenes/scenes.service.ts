@@ -14,10 +14,17 @@ import type {
 } from './dto/scene.dto';
 import type {
   SavedSceneResponse,
+  SceneMemoryMetadata,
   SceneRow,
   SceneVersionResponse,
   SceneVersionRow,
 } from './scenes.types';
+
+const SCENE_SELECT_FIELDS =
+  'id,project_id,user_id,name,description,latest_scene_json,latest_prompt,latest_version_number,chat_context_summary,chat_context_updated_at,estimated_input_tokens,estimated_output_tokens,provider_input_tokens,provider_output_tokens,created_at,updated_at';
+
+const VERSION_SELECT_FIELDS =
+  'id,scene_id,user_id,version_number,prompt,scene_json,warnings,chat_context_summary,chat_context_updated_at,estimated_input_tokens,estimated_output_tokens,provider_input_tokens,provider_output_tokens,created_at';
 
 @Injectable()
 export class ScenesService {
@@ -35,9 +42,7 @@ export class ScenesService {
     const { data, error } = await this.supabaseService
       .getClient()
       .from('scenes')
-      .select(
-        'id,project_id,user_id,name,description,latest_scene_json,latest_prompt,latest_version_number,created_at,updated_at',
-      )
+      .select(SCENE_SELECT_FIELDS)
       .eq('user_id', userId)
       .eq('project_id', projectId)
       .order('updated_at', { ascending: false });
@@ -69,9 +74,7 @@ export class ScenesService {
     const { data, error } = await this.supabaseService
       .getClient()
       .from('scene_versions')
-      .select(
-        'id,scene_id,user_id,version_number,prompt,scene_json,warnings,created_at',
-      )
+      .select(VERSION_SELECT_FIELDS)
       .eq('user_id', userId)
       .eq('scene_id', sceneId)
       .order('version_number', { ascending: false });
@@ -93,6 +96,7 @@ export class ScenesService {
     await this.projectsService.assertOwnedProject(userId, projectId);
 
     const scene = SceneDocumentSchema.parse(request.scene);
+    const memoryFields = this.memoryFieldsFromUsage(request.usage);
     const { data: sceneRow, error: sceneError } = await this.supabaseService
       .getClient()
       .from('scenes')
@@ -104,10 +108,9 @@ export class ScenesService {
         latest_scene_json: scene,
         latest_prompt: request.prompt ?? null,
         latest_version_number: 1,
+        ...memoryFields,
       })
-      .select(
-        'id,project_id,user_id,name,description,latest_scene_json,latest_prompt,latest_version_number,created_at,updated_at',
-      )
+      .select(SCENE_SELECT_FIELDS)
       .single();
 
     if (sceneError || !sceneRow) {
@@ -127,6 +130,7 @@ export class ScenesService {
         prompt: request.prompt ?? null,
         scene_json: scene,
         warnings: request.warnings,
+        ...memoryFields,
       });
 
     if (versionError) {
@@ -155,6 +159,10 @@ export class ScenesService {
     );
     const scene = SceneDocumentSchema.parse(request.scene);
     const nextVersion = existingScene.latest_version_number + 1;
+    const memoryFields = this.memoryFieldsFromUsage(
+      request.usage,
+      existingScene,
+    );
 
     const { error: versionError } = await this.supabaseService
       .getClient()
@@ -166,6 +174,7 @@ export class ScenesService {
         prompt: request.prompt ?? null,
         scene_json: scene,
         warnings: request.warnings,
+        ...memoryFields,
       });
 
     if (versionError) {
@@ -179,14 +188,13 @@ export class ScenesService {
         latest_scene_json: scene,
         latest_prompt: request.prompt ?? existingScene.latest_prompt,
         latest_version_number: nextVersion,
+        ...memoryFields,
         updated_at: new Date().toISOString(),
       })
       .eq('id', sceneId)
       .eq('user_id', userId)
       .eq('project_id', projectId)
-      .select(
-        'id,project_id,user_id,name,description,latest_scene_json,latest_prompt,latest_version_number,created_at,updated_at',
-      )
+      .select(SCENE_SELECT_FIELDS)
       .single();
 
     if (error || !data) {
@@ -220,9 +228,7 @@ export class ScenesService {
       .eq('id', sceneId)
       .eq('user_id', userId)
       .eq('project_id', projectId)
-      .select(
-        'id,project_id,user_id,name,description,latest_scene_json,latest_prompt,latest_version_number,created_at,updated_at',
-      )
+      .select(SCENE_SELECT_FIELDS)
       .single();
 
     if (error || !data) {
@@ -262,9 +268,7 @@ export class ScenesService {
     const { data, error } = await this.supabaseService
       .getClient()
       .from('scenes')
-      .select(
-        'id,project_id,user_id,name,description,latest_scene_json,latest_prompt,latest_version_number,created_at,updated_at',
-      )
+      .select(SCENE_SELECT_FIELDS)
       .eq('id', sceneId)
       .eq('user_id', userId)
       .eq('project_id', projectId)
@@ -286,6 +290,7 @@ export class ScenesService {
       latestScene: SceneDocumentSchema.parse(row.latest_scene_json),
       latestPrompt: row.latest_prompt,
       latestVersionNumber: row.latest_version_number,
+      memory: this.toMemoryMetadata(row),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -299,7 +304,46 @@ export class ScenesService {
       prompt: row.prompt,
       scene: SceneDocumentSchema.parse(row.scene_json),
       warnings: row.warnings,
+      memory: this.toMemoryMetadata(row),
       createdAt: row.created_at,
+    };
+  }
+
+  private memoryFieldsFromUsage(
+    usage: CreateSceneRequest['usage'] | SaveSceneVersionRequest['usage'],
+    existing?: SceneRow,
+  ) {
+    const compactSummary =
+      usage?.memory?.compactSummary ?? existing?.chat_context_summary ?? null;
+    const compactedAt =
+      usage?.memory?.compactedAt ?? existing?.chat_context_updated_at ?? null;
+
+    return {
+      chat_context_summary: compactSummary,
+      chat_context_updated_at: compactedAt,
+      estimated_input_tokens:
+        usage?.estimatedInputTokens ?? existing?.estimated_input_tokens ?? null,
+      estimated_output_tokens:
+        usage?.estimatedOutputTokens ??
+        existing?.estimated_output_tokens ??
+        null,
+      provider_input_tokens:
+        usage?.providerInputTokens ?? existing?.provider_input_tokens ?? null,
+      provider_output_tokens:
+        usage?.providerOutputTokens ?? existing?.provider_output_tokens ?? null,
+    };
+  }
+
+  private toMemoryMetadata(
+    row: SceneRow | SceneVersionRow,
+  ): SceneMemoryMetadata {
+    return {
+      chatContextSummary: row.chat_context_summary ?? null,
+      chatContextUpdatedAt: row.chat_context_updated_at ?? null,
+      estimatedInputTokens: row.estimated_input_tokens ?? null,
+      estimatedOutputTokens: row.estimated_output_tokens ?? null,
+      providerInputTokens: row.provider_input_tokens ?? null,
+      providerOutputTokens: row.provider_output_tokens ?? null,
     };
   }
 

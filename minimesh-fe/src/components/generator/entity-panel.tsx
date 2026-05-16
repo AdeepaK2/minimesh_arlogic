@@ -14,10 +14,12 @@ interface EntityPanelProps {
   isIsolating: boolean;
   isTransformLocked: boolean;
   selectedEntity: SceneEntity | null;
+  selectedEntityIds?: string[];
+  onApproveSelected: () => Promise<void>;
   onFocus: () => void;
   onRefine: (instruction: string) => Promise<void>;
   onResetTransform: () => void;
-  onSelectEntity: (entityId: string) => void;
+  onSelectEntity: (entityId: string, additive?: boolean) => void;
   onToggleTransformLock: () => void;
   onToggleIsolate: () => void;
   onTransformChange: (transform: SceneEntityTransform) => void;
@@ -32,6 +34,8 @@ export function EntityPanel({
   isIsolating,
   isTransformLocked,
   selectedEntity,
+  selectedEntityIds = [],
+  onApproveSelected,
   onFocus,
   onRefine,
   onResetTransform,
@@ -42,6 +46,8 @@ export function EntityPanel({
 }: EntityPanelProps) {
   const [instruction, setInstruction] = useState("");
   const [isRefining, setIsRefining] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const selectedEntityIdSet = new Set(selectedEntityIds);
 
   async function handleRefine() {
     const trimmedInstruction = instruction.trim();
@@ -57,6 +63,16 @@ export function EntityPanel({
       setInstruction("");
     } finally {
       setIsRefining(false);
+    }
+  }
+
+  async function handleApproveSelected() {
+    setIsApproving(true);
+
+    try {
+      await onApproveSelected();
+    } finally {
+      setIsApproving(false);
     }
   }
 
@@ -91,25 +107,36 @@ export function EntityPanel({
             Generate a scene to inspect entities.
           </p>
         ) : (
-          entities.map((entity) => (
-            <button
-              key={entity.id}
-              className={`border px-3 py-2 text-left transition ${
-                selectedEntity?.id === entity.id
-                  ? "border-accent bg-accent-soft"
-                  : "border-ui bg-field hover:border-accent"
-              }`}
-              type="button"
-              onClick={() => onSelectEntity(entity.id)}
-            >
-              <span className="block text-sm font-semibold text-primary">
-                {entity.name}
-              </span>
-              <span className="mt-1 block text-xs text-secondary">
-                {entity.objectIds.length} parts
-              </span>
-            </button>
-          ))
+          <>
+            <p className="px-1 text-[11px] leading-5 text-muted">
+              Select one entity to refine. Use Ctrl/Shift to select multiple for
+              scene-level edits.
+            </p>
+            {entities.map((entity) => (
+              <button
+                key={entity.id}
+                className={`border px-3 py-2 text-left transition ${
+                  selectedEntityIdSet.has(entity.id)
+                    ? "border-accent bg-accent-soft"
+                    : "border-ui bg-field hover:border-accent"
+                }`}
+                type="button"
+                onClick={(event) =>
+                  onSelectEntity(
+                    entity.id,
+                    event.shiftKey || event.ctrlKey || event.metaKey,
+                  )
+                }
+              >
+                <span className="block text-sm font-semibold text-primary">
+                  {entity.name}
+                </span>
+                <span className="mt-1 block text-xs text-secondary">
+                  {entity.objectIds.length} parts
+                </span>
+              </button>
+            ))}
+          </>
         )}
       </div>
 
@@ -159,6 +186,15 @@ export function EntityPanel({
               {isIsolating ? "Show All" : "Isolate"}
             </button>
           </div>
+
+          <button
+            className="border border-success bg-success-soft px-3 py-2 text-xs font-semibold text-success transition hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-60"
+            type="button"
+            disabled={isBusy || isApproving}
+            onClick={() => void handleApproveSelected()}
+          >
+            {isApproving ? "Approving" : "Approve Selected Model"}
+          </button>
 
           <div className="grid grid-cols-2 gap-2">
             <button

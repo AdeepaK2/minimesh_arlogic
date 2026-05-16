@@ -1,6 +1,10 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { MiniMaxChatRequest, MiniMaxTextProvider } from './minimax.types';
+import {
+  MiniMaxChatRequest,
+  MiniMaxCompletion,
+  MiniMaxTextProvider,
+} from './minimax.types';
 
 interface MiniMaxChoice {
   message?: {
@@ -10,6 +14,11 @@ interface MiniMaxChoice {
 
 interface MiniMaxResponse {
   choices?: MiniMaxChoice[];
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
   base_resp?: {
     status_code?: number;
     status_msg?: string;
@@ -32,6 +41,14 @@ export class MiniMaxService implements MiniMaxTextProvider {
   }
 
   async complete(request: MiniMaxChatRequest): Promise<string> {
+    const completion = await this.completeWithUsage(request);
+
+    return completion.content;
+  }
+
+  async completeWithUsage(
+    request: MiniMaxChatRequest,
+  ): Promise<MiniMaxCompletion> {
     if (!this.apiKey) {
       throw new ServiceUnavailableException(
         'MINIMAX_API_KEY is not configured.',
@@ -76,7 +93,13 @@ export class MiniMaxService implements MiniMaxTextProvider {
       );
     }
 
-    return content;
+    return {
+      content,
+      usage: {
+        inputTokens: data.usage?.prompt_tokens,
+        outputTokens: data.usage?.completion_tokens,
+      },
+    };
   }
 
   private resolveEndpoint(baseUrl: string | undefined): string {

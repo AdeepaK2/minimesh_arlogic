@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent } from "react";
 
 export type ModalRequest =
   | {
@@ -32,8 +32,6 @@ interface AppModalProps {
 }
 
 export function AppModal({ request, onClose }: AppModalProps) {
-  const [value, setValue] = useState(request?.kind === "prompt" ? request.defaultValue ?? "" : "");
-
   if (!request) {
     return null;
   }
@@ -60,7 +58,10 @@ export function AppModal({ request, onClose }: AppModalProps) {
     }
 
     if (request.kind === "prompt") {
-      closeWith(value.trim() ? value.trim() : null);
+      const formData = new FormData(event.currentTarget);
+      const value = String(formData.get("prompt") ?? "").trim();
+
+      closeWith(value || null);
       return;
     }
 
@@ -87,9 +88,9 @@ export function AppModal({ request, onClose }: AppModalProps) {
             {request.label}
             <input
               autoFocus
+              defaultValue={request.defaultValue ?? ""}
+              name="prompt"
               className="border border-ui bg-field px-3 py-3 text-primary outline-none transition focus:border-accent"
-              value={value}
-              onChange={(event) => setValue(event.target.value)}
             />
           </label>
         ) : null}

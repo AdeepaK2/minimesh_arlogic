@@ -1,5 +1,6 @@
 import type {
   SavedScene,
+  GenerationUsage,
   SceneDocument,
   SceneVersion,
 } from "@/lib/scene/types";
@@ -13,12 +14,14 @@ interface SaveSceneInput {
   prompt?: string;
   scene: SceneDocument;
   warnings: string[];
+  usage?: GenerationUsage;
 }
 
 interface SaveVersionInput {
   prompt?: string;
   scene: SceneDocument;
   warnings: string[];
+  usage?: GenerationUsage;
 }
 
 export function listScenes(

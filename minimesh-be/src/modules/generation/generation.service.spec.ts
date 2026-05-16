@@ -24,6 +24,58 @@ const validSceneJson = JSON.stringify({
 });
 
 describe('GenerationService', () => {
+  it('asks for clarification when cricket wicket count is ambiguous', () => {
+    const provider = createProvider([]);
+    const service = new GenerationService(provider);
+
+    const result = service.clarifyScenePrompt(
+      'generate a cricket bat with ball and 3 wickets',
+    );
+
+    expect(result.status).toBe('needs_clarification');
+    if (result.status === 'needs_clarification') {
+      expect(result.question).toContain('3 wickets');
+      expect(result.options).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 'stumps-in-one-wicket',
+            resolvedPrompt: expect.stringContaining('3 cricket stumps'),
+          }),
+          expect.objectContaining({
+            id: 'full-wicket-sets',
+            resolvedPrompt: expect.stringContaining('9 stumps total'),
+          }),
+        ]),
+      );
+    }
+  });
+
+  it('does not ask when cricket wicket prompt already mentions stumps', () => {
+    const provider = createProvider([]);
+    const service = new GenerationService(provider);
+
+    const result = service.clarifyScenePrompt(
+      'generate one cricket wicket with 3 stumps and a ball',
+    );
+
+    expect(result).toEqual({
+      status: 'ready',
+      resolvedPrompt: 'generate one cricket wicket with 3 stumps and a ball',
+    });
+  });
+
+  it('does not ask for simple unambiguous prompts', () => {
+    const provider = createProvider([]);
+    const service = new GenerationService(provider);
+
+    const result = service.clarifyScenePrompt('generate a red ball');
+
+    expect(result).toEqual({
+      status: 'ready',
+      resolvedPrompt: 'generate a red ball',
+    });
+  });
+
   it('returns validated scene JSON from MiniMax output', async () => {
     const provider = createProvider([validSceneJson]);
     const service = new GenerationService(provider);
@@ -42,6 +94,66 @@ describe('GenerationService', () => {
       maxCompletionTokens: 5000,
       temperature: 0.25,
     });
+  });
+
+  it('adds approved references to the MiniMax generation prompt', async () => {
+    const provider = createProvider([validSceneJson]);
+    const templatesService = {
+      searchApprovedReferences: jest.fn(() =>
+        Promise.resolve([
+          {
+            id: 'template-1',
+            name: 'Approved red sphere',
+            category: 'prop',
+            description: 'A reviewed sphere model.',
+            tags: ['sphere'],
+            referenceType: 'fragment',
+            fragment: {
+              objects: [
+                {
+                  id: 'approved-sphere',
+                  name: 'Approved sphere',
+                  type: 'sphere',
+                  position: [0, 1, 0],
+                  rotation: [0, 0, 0],
+                  scale: [1, 1, 1],
+                  material: { color: '#ef4444' },
+                },
+              ],
+              lights: [],
+            },
+            score: 0.9,
+          },
+        ]),
+      ),
+    };
+    const service = new GenerationService(
+      provider,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      templatesService as never,
+    );
+
+    await service.generateScene('make a red sphere');
+
+    expect(templatesService.searchApprovedReferences).toHaveBeenCalledWith(
+      'make a red sphere',
+      3,
+    );
+    expect(provider.complete.mock.calls[0][0].messages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'ApprovedMiniMeshReferences',
+          content: expect.stringContaining('Approved red sphere'),
+        }),
+      ]),
+    );
   });
 
   it('normalizes common rich-scene model drift into valid primitives', () => {
@@ -98,6 +210,49 @@ describe('GenerationService', () => {
     });
   });
 
+  it('flattens large support planes after generation', async () => {
+    const provider = createProvider([
+      JSON.stringify({
+        sceneName: 'Cricket Field',
+        objects: [
+          {
+            id: 'grass-surface',
+            name: 'Large grass surface',
+            type: 'plane',
+            position: [0, 1.2, 0],
+            rotation: [0.4, 0.2, -0.3],
+            scale: [12, 8, 1],
+            material: { color: '#166534' },
+          },
+          {
+            id: 'score-panel',
+            name: 'Score panel',
+            type: 'plane',
+            position: [0, 3, -2],
+            rotation: [0, 0.2, 0],
+            scale: [2, 1, 1],
+            material: { color: '#38bdf8' },
+          },
+        ],
+        lights: [],
+        camera: { position: [5, 4, 7], target: [0, 0, 0], fov: 45 },
+      }),
+    ]);
+    const service = new GenerationService(provider);
+
+    const result = await service.generateScene('make a cricket field');
+
+    expect(result.scene.objects[0]).toMatchObject({
+      id: 'grass-surface',
+      position: [0, 0, 0],
+      rotation: [-1.57, 0, 0],
+    });
+    expect(result.scene.objects[1]).toMatchObject({
+      id: 'score-panel',
+      rotation: [0, 0.2, 0],
+    });
+  });
+
   it('extracts JSON from fenced or noisy output', () => {
     const provider = createProvider([]);
     const service = new GenerationService(provider);
@@ -119,6 +274,70 @@ describe('GenerationService', () => {
     expect(result.warnings).toEqual([
       'Initial MiniMax output was repaired before validation.',
     ]);
+  });
+
+  it('repairs overlapping generated objects before returning the scene', async () => {
+    const provider = createProvider([
+      JSON.stringify({
+        sceneName: 'Cricket Wicket',
+        objects: [
+          {
+            id: 'stump-left',
+            name: 'Left stump',
+            type: 'cylinder',
+            position: [0, 1, 0],
+            rotation: [0, 0, 0],
+            scale: [0.08, 1.6, 0.08],
+            material: { color: '#8b5a2b' },
+          },
+          {
+            id: 'stump-middle',
+            name: 'Middle stump',
+            type: 'cylinder',
+            position: [0, 1, 0],
+            rotation: [0, 0, 0],
+            scale: [0.08, 1.6, 0.08],
+            material: { color: '#8b5a2b' },
+          },
+        ],
+      }),
+      JSON.stringify({
+        sceneName: 'Cricket Wicket',
+        objects: [
+          {
+            id: 'stump-left',
+            name: 'Left stump',
+            type: 'cylinder',
+            position: [-0.18, 1, 0],
+            rotation: [0, 0, 0],
+            scale: [0.08, 1.6, 0.08],
+            material: { color: '#8b5a2b' },
+          },
+          {
+            id: 'stump-middle',
+            name: 'Middle stump',
+            type: 'cylinder',
+            position: [0, 1, 0],
+            rotation: [0, 0, 0],
+            scale: [0.08, 1.6, 0.08],
+            material: { color: '#8b5a2b' },
+          },
+        ],
+      }),
+    ]);
+    const service = new GenerationService(provider);
+
+    const result = await service.generateScene('make cricket stumps');
+
+    expect(provider.complete.mock.calls).toHaveLength(2);
+    expect(result.scene.objects.map((object) => object.position)).toEqual([
+      [-0.18, 1, 0],
+      [0, 1, 0],
+    ]);
+    expect(result.warnings).toEqual([]);
+    expect(provider.complete.mock.calls[1][0].messages[1].content).toContain(
+      'share position',
+    );
   });
 
   it('throws when initial and repaired outputs are invalid', async () => {
@@ -389,6 +608,142 @@ describe('GenerationService', () => {
     expect(result.scene.objects[0].scale).toEqual([2, 0.4, 0.6]);
     expect(result.scene.objects[1].name).toBe('Road');
     expect(result.warnings).toContain('Refined selected entity.');
+  });
+
+  it('repairs refined entity objects that overlap existing objects', async () => {
+    const provider = createProvider([
+      JSON.stringify({
+        objects: [
+          {
+            id: 'ball',
+            name: 'Cricket ball',
+            entityId: 'ball',
+            role: 'ball',
+            type: 'sphere',
+            position: [0, 1, 0],
+            rotation: [0, 0, 0],
+            scale: [0.25, 0.25, 0.25],
+            material: { color: '#ef4444' },
+          },
+        ],
+        warnings: [],
+      }),
+      JSON.stringify({
+        sceneName: 'Cricket Scene',
+        objects: [
+          {
+            id: 'stump',
+            name: 'Cricket stump',
+            entityId: 'stump',
+            role: 'stump',
+            type: 'cylinder',
+            position: [0, 1, 0],
+            rotation: [0, 0, 0],
+            scale: [0.08, 1.6, 0.08],
+            material: { color: '#8b5a2b' },
+          },
+          {
+            id: 'ball',
+            name: 'Cricket ball',
+            entityId: 'ball',
+            role: 'ball',
+            type: 'sphere',
+            position: [0.6, 0.25, 0],
+            rotation: [0, 0, 0],
+            scale: [0.25, 0.25, 0.25],
+            material: { color: '#ef4444' },
+          },
+        ],
+        entities: [
+          {
+            id: 'stump',
+            name: 'Stump',
+            objectIds: ['stump'],
+            tags: ['cricket'],
+            transform: {
+              position: [0, 0, 0],
+              rotation: [0, 0, 0],
+              scale: [1, 1, 1],
+            },
+          },
+          {
+            id: 'ball',
+            name: 'Ball',
+            objectIds: ['ball'],
+            tags: ['cricket'],
+            transform: {
+              position: [0, 0, 0],
+              rotation: [0, 0, 0],
+              scale: [1, 1, 1],
+            },
+          },
+        ],
+        lights: [],
+        camera: { position: [5, 4, 7], target: [0, 0, 0], fov: 45 },
+      }),
+    ]);
+    const service = new GenerationService(provider);
+    const scene: SceneDocument = {
+      sceneName: 'Cricket Scene',
+      objects: [
+        {
+          id: 'stump',
+          name: 'Cricket stump',
+          entityId: 'stump',
+          role: 'stump',
+          type: 'cylinder',
+          position: [0, 1, 0],
+          rotation: [0, 0, 0],
+          scale: [0.08, 1.6, 0.08],
+          material: { color: '#8b5a2b' },
+        },
+        {
+          id: 'ball',
+          name: 'Cricket ball',
+          entityId: 'ball',
+          role: 'ball',
+          type: 'sphere',
+          position: [1, 0.25, 0],
+          rotation: [0, 0, 0],
+          scale: [0.25, 0.25, 0.25],
+          material: { color: '#ef4444' },
+        },
+      ],
+      entities: [
+        {
+          id: 'stump',
+          name: 'Stump',
+          objectIds: ['stump'],
+          tags: ['cricket'],
+          transform: {
+            position: [0, 0, 0],
+            rotation: [0, 0, 0],
+            scale: [1, 1, 1],
+          },
+        },
+        {
+          id: 'ball',
+          name: 'Ball',
+          objectIds: ['ball'],
+          tags: ['cricket'],
+          transform: {
+            position: [0, 0, 0],
+            rotation: [0, 0, 0],
+            scale: [1, 1, 1],
+          },
+        },
+      ],
+      lights: [],
+      camera: { position: [5, 4, 7], target: [0, 0, 0], fov: 45 },
+    };
+
+    const result = await service.refineEntity(scene, 'ball', 'move near stump');
+
+    expect(provider.complete.mock.calls).toHaveLength(2);
+    expect(result.scene.objects.find((object) => object.id === 'ball')).toMatchObject({
+      position: [0.6, 0.25, 0],
+    });
+    expect(result.warnings).toEqual(['Refined selected entity.']);
   });
 });
 
