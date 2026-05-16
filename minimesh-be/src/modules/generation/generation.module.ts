@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MiniMaxModule } from '../../ai/minimax/minimax.module';
 import { OpenAIModule } from '../../ai/openai/openai.module';
 import { SupabaseModule } from '../../database/supabase/supabase.module';
+import { BillingModule } from '../billing/billing.module';
 import { TemplatesModule } from '../templates/templates.module';
 import { GenerationController } from './generation.controller';
 import { GenerationJobsService } from './generation-jobs.service';
@@ -18,7 +19,7 @@ import { SceneAssemblyService } from './scene-assembly.service';
 import { TokenUsageService } from './token-usage.service';
 
 @Module({
-  imports: [MiniMaxModule, OpenAIModule, SupabaseModule, TemplatesModule],
+  imports: [MiniMaxModule, OpenAIModule, SupabaseModule, TemplatesModule, BillingModule],
   controllers: [GenerationController],
   providers: [
     GenerationService,
