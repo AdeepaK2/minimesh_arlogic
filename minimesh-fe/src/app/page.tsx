@@ -1,4 +1,4 @@
-﻿import { Navbar } from "@/components/landing/navbar";
+import { Navbar } from "@/components/landing/navbar";
 import {
   CtaBand,
   ExportSection,
