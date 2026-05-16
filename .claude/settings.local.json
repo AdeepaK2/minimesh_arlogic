@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\adeep\\\\OneDrive\\\\Documents\\\\Desktop\\\\Projects\\\\Minimesh\" -Recurse -Depth 2 -ErrorAction SilentlyContinue)",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "WebFetch(domain:minimesharlogic-production.up.railway.app)"
     ]
   }
 }

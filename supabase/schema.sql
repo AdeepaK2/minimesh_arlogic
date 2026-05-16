@@ -86,6 +86,25 @@ alter table scenes
 alter table scenes
   add column if not exists latest_scene_gltf jsonb;
 
+-- Billing: monthly generation token quotas (renewed monthly in UTC via backend).
+alter table profiles
+  add column if not exists billing_plan text not null default 'free',
+  add column if not exists monthly_generation_tokens_used integer not null default 0,
+  add column if not exists billing_usage_period_start timestamptz;
+
+update profiles
+set
+  billing_usage_period_start =
+    timezone('utc', date_trunc('month', coalesce(updated_at, created_at)))
+where billing_usage_period_start is null;
+
+alter table profiles
+  alter column billing_usage_period_start
+    set default (timezone('utc', date_trunc('month', now())));
+
+alter table profiles
+  alter column billing_usage_period_start set not null;
+
 alter table scene_versions
   add column if not exists scene_gltf jsonb;
 

@@ -10,6 +10,18 @@ import {
 } from './generation.service';
 import { GenerationJobsService } from './generation-jobs.service';
 import type { GenerationJobResponse } from './generation-job.types';
+import { BillingService } from '../billing/billing.service';
+import { GltfBuilderService } from './gltf-builder.service';
+import type { AuthenticatedRequest } from '../../common/auth/auth.types';
+
+function mockReq(): AuthenticatedRequest {
+  return {
+    authUser: {
+      id: '550e8400-e29b-41d4-a716-446655440000',
+      accessToken: 'test-token',
+    },
+  } as AuthenticatedRequest;
+}
 
 const controllerScene: SceneDocument = {
   sceneName: 'Controller Scene',
@@ -125,6 +137,19 @@ describe('GenerationController', () => {
           provide: GenerationJobsService,
           useValue: jobsService,
         },
+        {
+          provide: GltfBuilderService,
+          useValue: {
+            build: jest.fn(),
+          },
+        },
+        {
+          provide: BillingService,
+          useValue: {
+            assertQuotaAvailable: jest.fn().mockResolvedValue(undefined),
+            recordGenerationUsage: jest.fn().mockResolvedValue(undefined),
+          },
+        },
       ],
     })
       .overrideGuard(SupabaseAuthGuard)
@@ -157,7 +182,7 @@ describe('GenerationController', () => {
   });
 
   it('passes a valid prompt to the generation service', async () => {
-    await controller.generateScene({ prompt: 'make a small green box' });
+    await controller.generateScene(mockReq(), { prompt: 'make a small green box' });
 
     expect(service.generateScene).toHaveBeenCalledWith(
       'make a small green box',
@@ -165,14 +190,14 @@ describe('GenerationController', () => {
     );
   });
 
-  it('rejects an empty prompt', () => {
-    expect(() => controller.generateScene({ prompt: '' })).toThrow(
-      BadRequestException,
-    );
+  it('rejects an empty prompt', async () => {
+    await expect(
+      controller.generateScene(mockReq(), { prompt: '' }),
+    ).rejects.toThrow(BadRequestException);
   });
 
   it('passes a valid scene edit request to the generation service', async () => {
-    await controller.editScene({
+    await controller.editScene(mockReq(), {
       scene: controllerScene,
       instruction: 'add a glowing arch',
     });
@@ -184,17 +209,17 @@ describe('GenerationController', () => {
     );
   });
 
-  it('rejects an invalid scene edit instruction', () => {
-    expect(() =>
-      controller.editScene({
+  it('rejects an invalid scene edit instruction', async () => {
+    await expect(
+      controller.editScene(mockReq(), {
         scene: controllerScene,
         instruction: '',
       }),
-    ).toThrow(BadRequestException);
+    ).rejects.toThrow(BadRequestException);
   });
 
   it('passes a valid entity refinement request to the generation service', async () => {
-    await controller.refineEntity({
+    await controller.refineEntity(mockReq(), {
       scene: controllerScene,
       entityId: 'object-1',
       instruction: 'make it taller',
