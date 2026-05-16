@@ -8,7 +8,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="admin-mesh-bg flex min-h-dvh bg-[#0a0a0f] text-zinc-100">
+    <div className="minimesh-admin admin-mesh-bg flex min-h-dvh">
       <div className="hidden lg:block">
         <AdminSidebar />
       </div>

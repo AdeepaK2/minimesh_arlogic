@@ -23,17 +23,15 @@ export function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
 
   return (
-    <aside className="admin-sidebar flex w-64 shrink-0 flex-col border-r border-white/10 bg-[#06060a]/90 backdrop-blur-xl">
-      <div className="border-b border-white/10 px-5 py-5">
+    <aside className="admin-sidebar flex w-64 shrink-0 flex-col border-r border-landing bg-landing-surface backdrop-blur-xl">
+      <div className="border-b border-landing px-5 py-5">
         <Link href="/" className="flex items-center gap-2.5">
           <Image src="/logo.svg" alt="" width={32} height={32} />
-          <span className="text-sm font-semibold text-white">
-            MiniMesh <span className="text-cyan-400">AI</span>
+          <span className="text-sm font-semibold text-landing-heading">
+            MiniMesh <span className="text-[var(--landing-accent)]">AI</span>
           </span>
         </Link>
-        <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500">
-          Admin Portal
-        </p>
+        <p className="minimesh-eyebrow mt-3">Admin Portal</p>
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
@@ -50,7 +48,7 @@ export function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
               className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
                 active
                   ? "admin-nav-active bg-cyan-500/10 text-cyan-300"
-                  : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+                  : "text-landing-muted hover:bg-landing-hover hover:text-landing-heading"
               }`}
             >
               <Icon active={active} />
@@ -63,10 +61,10 @@ export function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
         })}
       </nav>
 
-      <div className="border-t border-white/10 p-4">
+      <div className="border-t border-landing p-4">
         <Link
           href="/"
-          className="block rounded-xl border border-white/10 px-3 py-2 text-center text-xs text-zinc-400 transition hover:border-cyan-500/30 hover:text-cyan-300"
+          className="block rounded-xl border border-landing px-3 py-2 text-center text-xs text-landing-muted transition hover:border-cyan-500/30 hover:text-cyan-300"
         >
           ← Back to site
         </Link>
