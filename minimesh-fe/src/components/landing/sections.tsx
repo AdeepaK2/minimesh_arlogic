@@ -122,10 +122,10 @@ function SectionHeading({
       <p className="text-sm font-medium uppercase tracking-widest text-cyan-400">
         {eyebrow}
       </p>
-      <h2 className="mt-3 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+      <h2 className="mt-3 text-3xl font-bold tracking-tight text-landing-heading sm:text-4xl">
         {title}
       </h2>
-      <p className="mt-4 text-lg text-zinc-400">{description}</p>
+      <p className="mt-4 text-lg text-landing-muted">{description}</p>
     </div>
   );
 }
@@ -140,14 +140,14 @@ export function Hero() {
             <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
             Text to 3D · Export anywhere
           </p>
-          <h1 className="mt-6 text-4xl font-bold leading-[1.1] tracking-tight text-white sm:text-5xl lg:text-6xl">
+          <h1 className="mt-6 text-4xl font-bold leading-[1.1] tracking-tight text-landing-heading sm:text-5xl lg:text-6xl">
             Turn prompts into{" "}
             <span className="bg-gradient-to-r from-cyan-400 to-violet-400 bg-clip-text text-transparent">
               3D models
             </span>{" "}
             in seconds
           </h1>
-          <p className="mt-6 max-w-lg text-lg leading-relaxed text-zinc-400">
+          <p className="mt-6 max-w-lg text-lg leading-relaxed text-landing-muted">
             MiniMesh AI helps creators and developers generate meshes from
             natural language—then export or embed them on any website.
           </p>
@@ -160,18 +160,18 @@ export function Hero() {
             </Link>
             <Link
               href="#how-it-works"
-              className="inline-flex h-12 items-center justify-center rounded-full border border-white/15 px-8 text-sm font-medium text-zinc-200 transition hover:border-white/30 hover:bg-white/5"
+              className="inline-flex h-12 items-center justify-center rounded-full border border-landing px-8 text-sm font-medium text-landing-muted transition hover:border-landing hover:bg-landing-hover"
             >
               See how it works
             </Link>
           </div>
-          <p className="mt-6 text-sm text-zinc-500">
+          <p className="mt-6 text-sm text-landing-subtle">
             No credit card required · Standard 3D formats
           </p>
         </div>
 
         <div className="relative flex justify-center lg:justify-end">
-          <div className="mesh-preview relative aspect-square w-full max-w-md rounded-3xl border border-white/10 bg-zinc-900/50 p-8 shadow-2xl shadow-cyan-500/10 backdrop-blur">
+          <div className="mesh-preview relative aspect-square w-full max-w-md rounded-3xl border border-landing bg-landing-card p-8 shadow-2xl shadow-cyan-500/10 backdrop-blur">
             <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-cyan-500/10 via-transparent to-violet-500/10" />
             <svg
               viewBox="0 0 200 200"
@@ -194,9 +194,9 @@ export function Hero() {
               <line x1="30" y1="60" x2="100" y2="20" />
               <circle cx="100" cy="100" r="4" fill="currentColor" stroke="none" />
             </svg>
-            <div className="absolute bottom-6 left-6 right-6 rounded-xl border border-white/10 bg-black/60 px-4 py-3 backdrop-blur">
-              <p className="font-mono text-xs text-zinc-500">prompt</p>
-              <p className="mt-1 text-sm text-zinc-200">
+            <div className="absolute bottom-6 left-6 right-6 rounded-xl border border-landing bg-landing-surface px-4 py-3 backdrop-blur">
+              <p className="font-mono text-xs text-landing-subtle">prompt</p>
+              <p className="mt-1 text-sm text-landing-muted">
                 &ldquo;Low-poly crystal fox, game-ready&rdquo;
               </p>
             </div>
@@ -210,15 +210,15 @@ export function Hero() {
 export function SocialProof() {
   const brands = ["Studio", "Arcade", "Pixel", "Nova", "Forge", "Lumen"];
   return (
-    <section className="border-y border-white/5 bg-white/[0.02] px-6 py-12">
-      <p className="text-center text-sm font-medium text-zinc-500">
+    <section className="border-y border-landing bg-landing-card px-6 py-12">
+      <p className="text-center text-sm font-medium text-landing-subtle">
         Trusted by creators &amp; developers
       </p>
       <div className="mx-auto mt-8 flex max-w-4xl flex-wrap items-center justify-center gap-x-12 gap-y-6">
         {brands.map((name) => (
           <span
             key={name}
-            className="text-lg font-semibold tracking-wide text-zinc-600"
+            className="text-lg font-semibold tracking-wide text-landing-subtle"
           >
             {name}
           </span>
@@ -240,7 +240,7 @@ export function Features() {
         {features.map((feature) => (
           <article
             key={feature.title}
-            className="group rounded-2xl border border-white/10 bg-white/[0.03] p-8 transition hover:-translate-y-1 hover:border-cyan-500/30 hover:bg-white/[0.05]"
+            className="group rounded-2xl border border-landing bg-landing-card p-8 transition hover:-translate-y-1 hover:border-cyan-500/30 hover:bg-landing-hover"
           >
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-violet-500/20 text-cyan-400">
               <svg
@@ -253,10 +253,10 @@ export function Features() {
                 {feature.icon}
               </svg>
             </div>
-            <h3 className="mt-6 text-xl font-semibold text-white">
+            <h3 className="mt-6 text-xl font-semibold text-landing-heading">
               {feature.title}
             </h3>
-            <p className="mt-3 leading-relaxed text-zinc-400">
+            <p className="mt-3 leading-relaxed text-landing-muted">
               {feature.description}
             </p>
           </article>
@@ -277,9 +277,9 @@ export function HowItWorks() {
       <div className="mx-auto mt-16 grid max-w-6xl gap-8 md:grid-cols-3">
         {steps.map((item) => (
           <div key={item.step} className="relative">
-            <span className="text-5xl font-bold text-white/10">{item.step}</span>
-            <h3 className="mt-4 text-xl font-semibold text-white">{item.title}</h3>
-            <p className="mt-3 text-zinc-400">{item.text}</p>
+            <span className="text-5xl font-bold text-landing-heading/10">{item.step}</span>
+            <h3 className="mt-4 text-xl font-semibold text-landing-heading">{item.title}</h3>
+            <p className="mt-3 text-landing-muted">{item.text}</p>
           </div>
         ))}
       </div>
@@ -299,10 +299,10 @@ export function UseCases() {
         {useCases.map((item) => (
           <div
             key={item.title}
-            className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.04] to-transparent p-8"
+            className="rounded-2xl border border-landing bg-gradient-to-br from-landing-card to-transparent p-8"
           >
-            <h3 className="text-lg font-semibold text-white">{item.title}</h3>
-            <p className="mt-2 text-zinc-400">{item.text}</p>
+            <h3 className="text-lg font-semibold text-landing-heading">{item.title}</h3>
+            <p className="mt-2 text-landing-muted">{item.text}</p>
           </div>
         ))}
       </div>
@@ -318,10 +318,10 @@ export function ExportSection() {
           <p className="text-sm font-medium uppercase tracking-widest text-cyan-400">
             For developers
           </p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+          <h2 className="mt-3 text-3xl font-bold tracking-tight text-landing-heading sm:text-4xl">
             Export once, embed anywhere
           </h2>
-          <p className="mt-4 text-lg text-zinc-400">
+          <p className="mt-4 text-lg text-landing-muted">
             Standard formats and web-ready snippets so your models work outside
             MiniMesh.
           </p>
@@ -336,14 +336,14 @@ export function ExportSection() {
             API coming soon
           </span>
         </div>
-        <pre className="overflow-x-auto rounded-2xl border border-white/10 bg-zinc-950 p-6 text-sm leading-relaxed">
-          <code className="font-mono text-zinc-300">
-            <span className="text-zinc-500">{`<!-- Embed on your site -->`}</span>
+        <pre className="overflow-x-auto rounded-2xl border border-landing bg-landing-code p-6 text-sm leading-relaxed">
+          <code className="font-mono text-landing-muted">
+            <span className="text-landing-subtle">{`<!-- Embed on your site -->`}</span>
             {"\n"}
             <span className="text-violet-400">&lt;script</span>
-            <span className="text-zinc-300"> type=</span>
+            <span className="text-landing-muted"> type=</span>
             <span className="text-cyan-400">&quot;module&quot;</span>
-            <span className="text-zinc-300"> src=</span>
+            <span className="text-landing-muted"> src=</span>
             <span className="text-cyan-400">
               &quot;https://cdn.minimesh.ai/v1/embed.js&quot;
             </span>
@@ -351,10 +351,10 @@ export function ExportSection() {
             {"\n"}
             <span className="text-violet-400">&lt;minimesh-viewer</span>
             {"\n"}
-            <span className="text-zinc-300">  model=</span>
+            <span className="text-landing-muted">  model=</span>
             <span className="text-cyan-400">&quot;your-model-id&quot;</span>
             {"\n"}
-            <span className="text-zinc-300">  auto-rotate</span>
+            <span className="text-landing-muted">  auto-rotate</span>
             {"\n"}
             <span className="text-violet-400">/&gt;</span>
           </code>
@@ -379,23 +379,23 @@ export function Pricing() {
             className={`relative flex flex-col rounded-2xl border p-8 ${
               plan.highlighted
                 ? "border-cyan-500/50 bg-gradient-to-b from-cyan-500/10 to-transparent shadow-lg shadow-cyan-500/10"
-                : "border-white/10 bg-white/[0.03]"
+                : "border-landing bg-landing-card"
             }`}
           >
             {plan.highlighted && (
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-cyan-500 to-violet-500 px-3 py-1 text-xs font-semibold text-white">
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-cyan-500 to-violet-500 px-3 py-1 text-xs font-semibold text-landing-heading">
                 Most popular
               </span>
             )}
-            <h3 className="text-lg font-semibold text-white">{plan.name}</h3>
+            <h3 className="text-lg font-semibold text-landing-heading">{plan.name}</h3>
             <p className="mt-4 flex items-baseline gap-1">
-              <span className="text-4xl font-bold text-white">{plan.price}</span>
-              <span className="text-zinc-500">{plan.period}</span>
+              <span className="text-4xl font-bold text-landing-heading">{plan.price}</span>
+              <span className="text-landing-subtle">{plan.period}</span>
             </p>
-            <p className="mt-3 text-sm text-zinc-400">{plan.description}</p>
+            <p className="mt-3 text-sm text-landing-muted">{plan.description}</p>
             <ul className="mt-8 flex-1 space-y-3">
               {plan.features.map((f) => (
-                <li key={f} className="flex items-start gap-2 text-sm text-zinc-300">
+                <li key={f} className="flex items-start gap-2 text-sm text-landing-muted">
                   <svg
                     className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400"
                     fill="none"
@@ -414,7 +414,7 @@ export function Pricing() {
               className={`mt-8 flex h-11 items-center justify-center rounded-full text-sm font-semibold transition ${
                 plan.highlighted
                   ? "bg-gradient-to-r from-cyan-500 to-violet-500 text-white hover:brightness-110"
-                  : "border border-white/15 text-white hover:bg-white/5"
+                  : "border border-landing text-landing-heading hover:bg-landing-hover"
               }`}
             >
               {plan.cta}
@@ -429,11 +429,11 @@ export function Pricing() {
 export function CtaBand() {
   return (
     <section id="cta" className="px-6 py-24">
-      <div className="mx-auto max-w-3xl rounded-3xl border border-white/10 bg-gradient-to-br from-cyan-500/10 via-zinc-900/80 to-violet-500/10 px-8 py-16 text-center backdrop-blur md:px-16">
-        <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+      <div className="mx-auto max-w-3xl rounded-3xl border border-landing bg-gradient-to-br from-cyan-500/10 via-[color-mix(in_srgb,var(--landing-bg)_80%,transparent)] to-violet-500/10 px-8 py-16 text-center backdrop-blur md:px-16">
+        <h2 className="text-3xl font-bold tracking-tight text-landing-heading sm:text-4xl">
           Ready to build in 3D?
         </h2>
-        <p className="mx-auto mt-4 max-w-lg text-zinc-400">
+        <p className="mx-auto mt-4 max-w-lg text-landing-muted">
           Create a free account or log in to start generating models with MiniMesh AI.
         </p>
         <div className="mx-auto mt-10 flex max-w-md flex-col gap-3 sm:flex-row sm:items-center sm:justify-center">
@@ -445,7 +445,7 @@ export function CtaBand() {
           </Link>
           <Link
             href="/login"
-            className="inline-flex h-12 items-center justify-center rounded-full border border-white/15 px-8 text-sm font-medium text-zinc-200 transition hover:border-white/30 hover:bg-white/5"
+            className="inline-flex h-12 items-center justify-center rounded-full border border-landing px-8 text-sm font-medium text-landing-muted transition hover:border-landing hover:bg-landing-hover"
           >
             Login
           </Link>
@@ -457,30 +457,30 @@ export function CtaBand() {
 
 export function Footer() {
   return (
-    <footer className="border-t border-white/10 px-6 py-12">
+    <footer className="border-t border-landing px-6 py-12">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-8 md:flex-row">
         <Link href="/" className="flex items-center gap-2">
           <Image src="/logo.svg" alt="" width={32} height={32} />
-          <span className="font-semibold text-white">MiniMesh AI</span>
+          <span className="font-semibold text-landing-heading">MiniMesh AI</span>
         </Link>
-        <nav className="flex flex-wrap justify-center gap-6 text-sm text-zinc-500">
-          <Link href="/admin" className="hover:text-zinc-300">
+        <nav className="flex flex-wrap justify-center gap-6 text-sm text-landing-subtle">
+          <Link href="/admin" className="hover:text-landing-muted">
             Admin
           </Link>
-          <Link href="#" className="hover:text-zinc-300">
+          <Link href="#" className="hover:text-landing-muted">
             Privacy
           </Link>
-          <Link href="#" className="hover:text-zinc-300">
+          <Link href="#" className="hover:text-landing-muted">
             Terms
           </Link>
-          <Link href="#" className="hover:text-zinc-300">
+          <Link href="#" className="hover:text-landing-muted">
             GitHub
           </Link>
-          <Link href="#" className="hover:text-zinc-300">
+          <Link href="#" className="hover:text-landing-muted">
             Contact
           </Link>
         </nav>
-        <p className="text-sm text-zinc-600">
+        <p className="text-sm text-landing-subtle">
           © {new Date().getFullYear()} MiniMesh AI
         </p>
       </div>

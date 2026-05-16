@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { useAuth } from "./auth-provider";
 
 interface AuthScreenProps {
@@ -59,9 +60,12 @@ export function AuthScreen({ initialMode = "signin" }: AuthScreenProps) {
   return (
     <main className="grid min-h-dvh place-items-center bg-app px-4 text-primary">
       <section className="w-full max-w-md border border-ui bg-panel p-6 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
-          MiniMesh
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+            MiniMesh
+          </p>
+          <ThemeToggle />
+        </div>
         <h1 className="mt-2 text-2xl font-semibold">
           {mode === "signin" ? "Sign in" : "Create account"}
         </h1>

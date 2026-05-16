@@ -167,11 +167,127 @@ textarea {
   color: var(--panel);
 }
 
-/* Landing page */
+/* Landing page — follows OS/browser prefers-color-scheme (no manual toggle) */
+:root {
+  --landing-bg: #f0f2f8;
+  --landing-fg: #1a1a22;
+  --landing-heading: #0c0c10;
+  --landing-muted: #5a5a6e;
+  --landing-subtle: #6b6b7d;
+  --landing-border: rgb(15 23 42 / 0.1);
+  --landing-surface: rgb(255 255 255 / 0.78);
+  --landing-card: rgb(255 255 255 / 0.92);
+  --landing-card-shadow: 0 1px 0 rgb(255 255 255 / 0.8) inset, 0 8px 32px rgb(15 23 42 / 0.06);
+  --landing-code: #e8ecf4;
+  --landing-hover: rgb(15 23 42 / 0.05);
+  --landing-mesh: #dce3ef;
+  --landing-mesh-stroke: rgb(8 145 178 / 0.45);
+  --landing-glow-a: rgba(8, 145, 178, 0.14);
+  --landing-glow-b: rgba(109, 40, 217, 0.09);
+  --landing-accent: #0891b2;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --landing-bg: #0a0a0f;
+    --landing-fg: #f4f4f5;
+    --landing-heading: #ffffff;
+    --landing-muted: #a1a1aa;
+    --landing-subtle: #71717a;
+    --landing-border: rgb(255 255 255 / 0.1);
+    --landing-surface: rgb(10 10 15 / 0.88);
+    --landing-card: rgb(255 255 255 / 0.04);
+    --landing-card-shadow: 0 1px 0 rgb(255 255 255 / 0.06) inset, 0 8px 32px rgb(0 0 0 / 0.35);
+    --landing-code: #09090b;
+    --landing-hover: rgb(255 255 255 / 0.06);
+    --landing-mesh: #18181b;
+    --landing-mesh-stroke: rgb(34 211 238 / 0.55);
+    --landing-glow-a: rgba(34, 211, 238, 0.2);
+    --landing-glow-b: rgba(167, 139, 250, 0.14);
+    --landing-accent: #22d3ee;
+  }
+}
+
+.landing-page {
+  color-scheme: light dark;
+  min-height: 100%;
+  background-color: var(--landing-bg);
+  color: var(--landing-fg);
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
+}
+
+.landing-page :where(
+  header,
+  main,
+  footer,
+  section,
+  nav,
+  article,
+  a,
+  button,
+  p,
+  h1,
+  h2,
+  h3,
+  li,
+  pre,
+  span
+) {
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.bg-landing {
+  background-color: var(--landing-bg);
+  color: var(--landing-fg);
+}
+
+.bg-landing-surface {
+  background-color: var(--landing-surface);
+}
+
+.bg-landing-card {
+  background-color: var(--landing-card);
+  box-shadow: var(--landing-card-shadow);
+}
+
+.bg-landing-code {
+  background-color: var(--landing-code);
+}
+
+.text-landing-heading {
+  color: var(--landing-heading);
+}
+
+.text-landing-muted {
+  color: var(--landing-muted);
+}
+
+.text-landing-subtle {
+  color: var(--landing-subtle);
+}
+
+.border-landing {
+  border-color: var(--landing-border);
+}
+
+.hover\:bg-landing-hover:hover {
+  background-color: var(--landing-hover);
+}
+
+.hover\:text-landing-heading:hover {
+  color: var(--landing-heading);
+}
+
 .hero-glow {
   background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(34, 211, 238, 0.18), transparent),
-    radial-gradient(ellipse 60% 40% at 80% 50%, rgba(167, 139, 250, 0.12), transparent);
+    radial-gradient(ellipse 80% 50% at 50% -20%, var(--landing-glow-a), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 50%, var(--landing-glow-b), transparent);
 }
 
 .mesh-preview {
