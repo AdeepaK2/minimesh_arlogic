@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { Suspense, FormEvent, useEffect, useState } from "react";
 import { useAuth } from "./auth-provider";
 
 interface AuthScreenProps {
@@ -18,6 +18,27 @@ function safeRedirectPath(next: string | null): string {
 }
 
 export function AuthScreen({ initialMode = "signin" }: AuthScreenProps) {
+  return (
+    <Suspense fallback={<AuthShellFallback />}>
+      <AuthScreenContent initialMode={initialMode} />
+    </Suspense>
+  );
+}
+
+function AuthShellFallback() {
+  return (
+    <main className="minimesh-branded minimesh-mesh-bg relative flex min-h-dvh items-center justify-center px-4 py-12">
+      <div className="hero-glow pointer-events-none fixed inset-0" aria-hidden />
+      <section className="minimesh-glass-card relative z-10 w-full max-w-md rounded-2xl p-8">
+        <p className="text-sm text-landing-muted">Loading…</p>
+      </section>
+    </main>
+  );
+}
+
+function AuthScreenContent({
+  initialMode = "signin",
+}: AuthScreenProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = safeRedirectPath(searchParams.get("next"));
