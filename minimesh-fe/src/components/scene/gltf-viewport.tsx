@@ -201,8 +201,8 @@ function GltfScene({ gltfDocument, isolatedEntityId, selectedEntityIds, onSelect
   useEffect(() => {
     if (!loadedGroup) return;
     loadedGroup.traverse((obj) => {
-        if (!(obj instanceof Mesh)) return;
-        const mesh = obj;
+      if (!(obj instanceof Mesh)) return;
+      const mesh = obj;
       const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       const eid = getEntityId(obj);
       const isSelected = eid ? selectedEntityIds.has(eid) : false;

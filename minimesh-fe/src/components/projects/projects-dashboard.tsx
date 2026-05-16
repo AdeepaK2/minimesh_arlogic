@@ -9,6 +9,7 @@ import {
 } from "@/lib/api/projects";
 import { useAppModal } from "@/components/modal/use-app-modal";
 import type { Project } from "@/lib/scene/types";
+import { DashboardPlansBanner } from "./dashboard-plans-banner";
 
 interface ProjectsDashboardProps {
   accessToken: string;
@@ -131,6 +132,8 @@ export function ProjectsDashboard({ accessToken }: ProjectsDashboardProps) {
           Create Project
         </button>
       </header>
+
+      <DashboardPlansBanner accessToken={accessToken} />
 
       <div className="flex-1 overflow-auto p-6">
         {error ? (

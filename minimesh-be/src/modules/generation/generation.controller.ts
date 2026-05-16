@@ -6,9 +6,11 @@ import {
   NotFoundException,
   Param,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { ZodError } from 'zod';
+import type { AuthenticatedRequest } from '../../common/auth/auth.types';
 import { SupabaseAuthGuard } from '../../common/auth/supabase-auth.guard';
 import {
   LogicalGltfDocumentSchema,
@@ -42,6 +44,7 @@ import {
 import { GenerationJobsService } from './generation-jobs.service';
 import type { GenerationJobResponse } from './generation-job.types';
 import { GltfBuilderService } from './gltf-builder.service';
+import { BillingService } from '../billing/billing.service';
 
 @Controller('generation')
 @UseGuards(SupabaseAuthGuard)
@@ -50,6 +53,7 @@ export class GenerationController {
     private readonly generationService: GenerationService,
     private readonly generationJobsService: GenerationJobsService,
     private readonly gltfBuilderService: GltfBuilderService,
+    private readonly billingService: BillingService,
   ) {}
 
   @Post('clarify')
@@ -62,36 +66,72 @@ export class GenerationController {
   }
 
   @Post('scene')
-  generateScene(@Body() body: unknown): Promise<GenerateSceneResult> {
+  async generateScene(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: unknown,
+  ): Promise<GenerateSceneResult> {
     const request = this.validateRequest(body);
 
-    return this.generationService.generateScene(
+    await this.billingService.assertQuotaAvailable(req.authUser.id);
+
+    const result = await this.generationService.generateScene(
       request.prompt,
       request.chatContext,
     );
+
+    await this.billingService.recordGenerationUsage(
+      req.authUser.id,
+      result.usage,
+    );
+
+    return result;
   }
 
   @Post('scene-edit')
-  editScene(@Body() body: unknown): Promise<GenerateSceneResult> {
+  async editScene(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: unknown,
+  ): Promise<GenerateSceneResult> {
     const request = this.validateEditRequest(body);
 
-    return this.generationService.editScene(
+    await this.billingService.assertQuotaAvailable(req.authUser.id);
+
+    const result = await this.generationService.editScene(
       request.scene,
       request.instruction,
       request.chatContext,
     );
+
+    await this.billingService.recordGenerationUsage(
+      req.authUser.id,
+      result.usage,
+    );
+
+    return result;
   }
 
   @Post('entity-refinement')
-  refineEntity(@Body() body: unknown): Promise<GenerateSceneResult> {
+  async refineEntity(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: unknown,
+  ): Promise<GenerateSceneResult> {
     const request = this.validateRefinementRequest(body);
 
-    return this.generationService.refineEntity(
+    await this.billingService.assertQuotaAvailable(req.authUser.id);
+
+    const result = await this.generationService.refineEntity(
       request.scene,
       request.entityId,
       request.instruction,
       request.chatContext,
     );
+
+    await this.billingService.recordGenerationUsage(
+      req.authUser.id,
+      result.usage,
+    );
+
+    return result;
   }
 
   @Post('jobs')
