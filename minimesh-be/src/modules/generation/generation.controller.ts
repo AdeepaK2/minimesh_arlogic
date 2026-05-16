@@ -11,6 +11,10 @@ import {
   GenerateSceneRequest,
   GenerateSceneRequestSchema,
 } from './dto/generate-scene.dto';
+import {
+  RefineEntityRequest,
+  RefineEntityRequestSchema,
+} from './dto/refine-entity.dto';
 import { GenerateSceneResult, GenerationService } from './generation.service';
 
 @Controller('generation')
@@ -25,6 +29,17 @@ export class GenerationController {
     return this.generationService.generateScene(request.prompt);
   }
 
+  @Post('entity-refinement')
+  refineEntity(@Body() body: unknown): Promise<GenerateSceneResult> {
+    const request = this.validateRefinementRequest(body);
+
+    return this.generationService.refineEntity(
+      request.scene,
+      request.entityId,
+      request.instruction,
+    );
+  }
+
   private validateRequest(body: unknown): GenerateSceneRequest {
     try {
       return GenerateSceneRequestSchema.parse(body);
@@ -32,6 +47,21 @@ export class GenerationController {
       if (error instanceof ZodError) {
         throw new BadRequestException({
           message: 'Invalid generation request.',
+          errors: error.issues.map((issue) => issue.message),
+        });
+      }
+
+      throw error;
+    }
+  }
+
+  private validateRefinementRequest(body: unknown): RefineEntityRequest {
+    try {
+      return RefineEntityRequestSchema.parse(body);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          message: 'Invalid entity refinement request.',
           errors: error.issues.map((issue) => issue.message),
         });
       }

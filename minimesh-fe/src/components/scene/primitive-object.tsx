@@ -1,15 +1,22 @@
 "use client";
 
 import { useFrame } from "@react-three/fiber";
+import { Edges } from "@react-three/drei";
 import { useRef } from "react";
 import type { Mesh } from "three";
 import type { SceneObject } from "@/lib/scene/types";
 
 interface PrimitiveObjectProps {
+  isSelected?: boolean;
   object: SceneObject;
+  onSelect?: () => void;
 }
 
-export function PrimitiveObject({ object }: PrimitiveObjectProps) {
+export function PrimitiveObject({
+  isSelected = false,
+  object,
+  onSelect,
+}: PrimitiveObjectProps) {
   const meshRef = useRef<Mesh>(null);
   const basePosition = object.position;
   const baseScale = object.scale;
@@ -62,15 +69,28 @@ export function PrimitiveObject({ object }: PrimitiveObjectProps) {
       scale={object.scale}
       castShadow
       receiveShadow
+      onClick={(event) => {
+        event.stopPropagation();
+        onSelect?.();
+      }}
     >
       <PrimitiveGeometry type={object.type} />
       <meshStandardMaterial
         color={object.material.color}
-        emissive={object.material.emissive ?? "#000000"}
-        emissiveIntensity={object.material.emissiveIntensity ?? 0}
+        emissive={
+          isSelected
+            ? object.material.emissive ?? "#38bdf8"
+            : object.material.emissive ?? "#000000"
+        }
+        emissiveIntensity={
+          isSelected
+            ? Math.max(0.6, object.material.emissiveIntensity ?? 0)
+            : object.material.emissiveIntensity ?? 0
+        }
         metalness={object.material.metalness ?? 0}
         roughness={object.material.roughness ?? 0.55}
       />
+      {isSelected ? <Edges color="#38bdf8" scale={1.03} /> : null}
     </mesh>
   );
 }

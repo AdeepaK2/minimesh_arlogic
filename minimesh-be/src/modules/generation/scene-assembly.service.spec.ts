@@ -44,6 +44,12 @@ describe('SceneAssemblyService', () => {
     expect(scene.objects).toHaveLength(2);
     expect(scene.objects[0].id).toBe('repeat-object');
     expect(scene.objects[1].id).toBe('repeat-object-2');
+    expect(scene.objects[0].entityId).toBe('props');
+    expect(scene.entities?.[0]).toMatchObject({
+      id: 'props',
+      name: 'Props',
+      objectIds: ['repeat-object', 'repeat-object-2'],
+    });
     expect(scene.lights.length).toBeGreaterThan(0);
   });
 });

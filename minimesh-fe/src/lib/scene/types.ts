@@ -24,6 +24,22 @@ export interface SceneMaterial {
   emissiveIntensity?: number;
 }
 
+export interface SceneEntityTransform {
+  position: Vector3Tuple;
+  rotation: Vector3Tuple;
+  scale: Vector3Tuple;
+}
+
+export interface SceneEntity {
+  id: string;
+  name: string;
+  description?: string;
+  sourceGroupId?: string;
+  objectIds: string[];
+  tags: string[];
+  transform: SceneEntityTransform;
+}
+
 export interface SceneAnimation {
   type: AnimationType;
   axis?: "x" | "y" | "z";
@@ -35,6 +51,8 @@ export interface SceneAnimation {
 export interface SceneObject {
   id: string;
   name: string;
+  entityId?: string;
+  role?: string;
   type: SceneObjectType;
   position: Vector3Tuple;
   rotation: Vector3Tuple;
@@ -69,6 +87,7 @@ export interface SceneDocument {
   sceneName: string;
   description?: string;
   objects: SceneObject[];
+  entities?: SceneEntity[];
   lights: SceneLight[];
   camera: SceneCamera;
   environment?: SceneEnvironment;

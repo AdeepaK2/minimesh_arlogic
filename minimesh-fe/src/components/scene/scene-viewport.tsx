@@ -1,17 +1,25 @@
 "use client";
 
 import { Grid, OrbitControls } from "@react-three/drei";
-import { Canvas, useThree } from "@react-three/fiber";
-import { useEffect } from "react";
+import { Canvas } from "@react-three/fiber";
 import { ACESFilmicToneMapping } from "three";
 import type { SceneDocument, SceneLight } from "@/lib/scene/types";
+import { getObjectEntityId } from "@/lib/scene/entities";
 import { PrimitiveObject } from "./primitive-object";
 
 interface SceneViewportProps {
+  isolatedEntityId?: string | null;
+  selectedEntityId?: string | null;
   scene: SceneDocument;
+  onSelectEntity?: (entityId: string | null) => void;
 }
 
-export function SceneViewport({ scene }: SceneViewportProps) {
+export function SceneViewport({
+  isolatedEntityId = null,
+  selectedEntityId = null,
+  scene,
+  onSelectEntity,
+}: SceneViewportProps) {
   const environment = scene.environment ?? {
     backgroundColor: "#0b0f14",
     fogColor: "#0b0f14",
@@ -23,16 +31,20 @@ export function SceneViewport({ scene }: SceneViewportProps) {
   return (
     <div className="h-full min-h-[420px] w-full overflow-hidden border border-zinc-800 bg-[#0b0f14]">
       <Canvas
+        key={`${environment.backgroundColor}-${environment.fogColor}-${environment.exposure}`}
         shadows
         gl={{ toneMapping: ACESFilmicToneMapping }}
+        onCreated={({ gl }) => {
+          gl.toneMappingExposure = environment.exposure;
+        }}
         camera={{
           position: scene.camera.position,
           fov: scene.camera.fov,
           near: 0.1,
           far: 1000,
         }}
+        onPointerMissed={() => onSelectEntity?.(null)}
       >
-        <SceneExposure exposure={environment.exposure} />
         <color attach="background" args={[environment.backgroundColor]} />
         <fog
           attach="fog"
@@ -48,9 +60,26 @@ export function SceneViewport({ scene }: SceneViewportProps) {
           infiniteGrid
         />
         <group>
-          {scene.objects.map((object) => (
-            <PrimitiveObject key={object.id} object={object} />
-          ))}
+          {scene.objects
+            .filter((object) => {
+              if (!isolatedEntityId) {
+                return true;
+              }
+
+              return getObjectEntityId(object) === isolatedEntityId;
+            })
+            .map((object) => {
+              const entityId = getObjectEntityId(object);
+
+              return (
+                <PrimitiveObject
+                  key={object.id}
+                  isSelected={entityId === selectedEntityId}
+                  object={object}
+                  onSelect={() => onSelectEntity?.(entityId)}
+                />
+              );
+            })}
         </group>
         <OrbitControls
           makeDefault
@@ -61,16 +90,6 @@ export function SceneViewport({ scene }: SceneViewportProps) {
       </Canvas>
     </div>
   );
-}
-
-function SceneExposure({ exposure }: { exposure: number }) {
-  const { gl } = useThree();
-
-  useEffect(() => {
-    gl.toneMappingExposure = exposure;
-  }, [exposure, gl]);
-
-  return null;
 }
 
 function SceneLights({ lights }: { lights: SceneLight[] }) {

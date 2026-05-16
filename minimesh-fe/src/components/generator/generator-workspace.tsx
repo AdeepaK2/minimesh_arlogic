@@ -6,7 +6,7 @@ import { AuthScreen } from "@/components/auth/auth-screen";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useAppModal } from "@/components/modal/use-app-modal";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
-import { generateScene } from "@/lib/api/generation";
+import { generateScene, refineEntity } from "@/lib/api/generation";
 import { getProject } from "@/lib/api/projects";
 import {
   createSavedScene,
@@ -16,12 +16,19 @@ import {
   saveSceneVersion,
 } from "@/lib/api/scenes";
 import { exportSceneToGlb } from "@/lib/scene/export-glb";
+import {
+  applyEntityTransform,
+  focusCameraOnEntity,
+  getSceneEntities,
+} from "@/lib/scene/entities";
 import type {
   Project,
   SavedScene,
   SceneDocument,
+  SceneEntityTransform,
   SceneVersion,
 } from "@/lib/scene/types";
+import { EntityPanel } from "./entity-panel";
 import { SceneLibrary } from "./scene-library";
 import { SceneViewport } from "../scene/scene-viewport";
 import { PromptPanel } from "./prompt-panel";
@@ -40,11 +47,14 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
   const [savedScenes, setSavedScenes] = useState<SavedScene[]>([]);
   const [versions, setVersions] = useState<SceneVersion[]>([]);
   const [activeSceneId, setActiveSceneId] = useState<string | null>(null);
+  const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
+  const [isolatedEntityId, setIsolatedEntityId] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isRefiningEntity, setIsRefiningEntity] = useState(false);
   const [isLibraryLoading, setIsLibraryLoading] = useState(false);
   const { confirm, modal, prompt: promptModal } = useAppModal();
 
@@ -142,6 +152,8 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
     setWarnings([]);
     setScene(null);
     setActiveSceneId(null);
+    setSelectedEntityId(null);
+    setIsolatedEntityId(null);
     setVersions([]);
 
     try {
@@ -246,6 +258,8 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
     setWarnings([]);
     setError(null);
     setActiveSceneId(savedScene.id);
+    setSelectedEntityId(null);
+    setIsolatedEntityId(null);
     await loadVersions(savedScene.id);
   }
 
@@ -255,6 +269,8 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
     setWarnings(version.warnings);
     setError(null);
     setActiveSceneId(version.sceneId);
+    setSelectedEntityId(null);
+    setIsolatedEntityId(null);
   }
 
   async function handleDeleteScene(sceneId: string) {
@@ -279,6 +295,8 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
 
       if (activeSceneId === sceneId) {
         setActiveSceneId(null);
+        setSelectedEntityId(null);
+        setIsolatedEntityId(null);
         setVersions([]);
       }
     } catch (caughtError) {
@@ -292,7 +310,66 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
     }
   }
 
-  const isBusy = isGenerating || isExporting || isSaving || isLibraryLoading;
+  function handleTransformEntity(transform: SceneEntityTransform) {
+    if (!scene || !selectedEntityId) {
+      return;
+    }
+
+    setScene(applyEntityTransform(scene, selectedEntityId, transform));
+  }
+
+  function handleFocusEntity() {
+    if (!scene || !selectedEntityId) {
+      return;
+    }
+
+    setScene(focusCameraOnEntity(scene, selectedEntityId));
+  }
+
+  function handleToggleIsolate() {
+    if (!selectedEntityId) {
+      return;
+    }
+
+    setIsolatedEntityId((current) =>
+      current === selectedEntityId ? null : selectedEntityId,
+    );
+  }
+
+  async function handleRefineEntity(instruction: string) {
+    if (!scene || !selectedEntityId) {
+      setError("Select an entity before refining.");
+      return;
+    }
+
+    setIsRefiningEntity(true);
+    setError(null);
+
+    try {
+      const result = await refineEntity(
+        scene,
+        selectedEntityId,
+        instruction,
+        authenticatedToken,
+      );
+      setScene(result.scene);
+      setWarnings(result.warnings);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Entity refinement failed.",
+      );
+    } finally {
+      setIsRefiningEntity(false);
+    }
+  }
+
+  const sceneEntities = scene ? getSceneEntities(scene) : [];
+  const selectedEntity =
+    sceneEntities.find((entity) => entity.id === selectedEntityId) ?? null;
+  const isBusy =
+    isGenerating || isExporting || isSaving || isLibraryLoading || isRefiningEntity;
 
   return (
     <main className="flex min-h-dvh bg-app text-primary max-lg:flex-col">
@@ -322,6 +399,20 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
           onLoadScene={(savedScene) => void handleLoadScene(savedScene)}
           onLoadVersion={handleLoadVersion}
           onRefresh={() => void loadSavedScenes()}
+        />
+
+        <EntityPanel
+          entities={sceneEntities}
+          isBusy={isBusy}
+          isIsolating={Boolean(
+            selectedEntityId && isolatedEntityId === selectedEntityId,
+          )}
+          selectedEntity={selectedEntity}
+          onFocus={handleFocusEntity}
+          onRefine={handleRefineEntity}
+          onSelectEntity={(entityId) => setSelectedEntityId(entityId)}
+          onToggleIsolate={handleToggleIsolate}
+          onTransformChange={handleTransformEntity}
         />
       </aside>
 
@@ -354,6 +445,7 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
             </Link>
             <div className="border border-ui px-3 py-2 text-xs font-medium text-secondary">
               {activeSceneId ? "Saved" : "Draft"} / {scene?.objects.length ?? 0} objects
+              {scene ? ` / ${sceneEntities.length} entities` : ""}
             </div>
             <ThemeToggle />
           </div>
@@ -361,7 +453,18 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
 
         <div className="min-h-0 flex-1 p-4">
           {scene ? (
-            <SceneViewport scene={scene} />
+            <SceneViewport
+              isolatedEntityId={isolatedEntityId}
+              scene={scene}
+              selectedEntityId={selectedEntityId}
+              onSelectEntity={(entityId) => {
+                setSelectedEntityId(entityId);
+
+                if (!entityId) {
+                  setIsolatedEntityId(null);
+                }
+              }}
+            />
           ) : (
             <div className="grid h-full min-h-[420px] place-items-center border border-ui bg-panel">
               <p className="max-w-sm px-6 text-center text-sm leading-6 text-secondary">

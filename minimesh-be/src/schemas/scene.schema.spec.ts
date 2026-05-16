@@ -50,6 +50,36 @@ describe('SceneDocumentSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts optional selectable entity metadata', () => {
+    const result = SceneDocumentSchema.safeParse({
+      ...validScene,
+      objects: [
+        {
+          ...validScene.objects[0],
+          entityId: 'entity-1',
+          role: 'body',
+        },
+      ],
+      entities: [
+        {
+          id: 'entity-1',
+          name: 'Selectable Box',
+          description: 'A selectable generated entity.',
+          sourceGroupId: 'group-1',
+          objectIds: ['object-1'],
+          tags: ['box'],
+          transform: {
+            position: [0, 0, 0],
+            rotation: [0, 0, 0],
+            scale: [1, 1, 1],
+          },
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it('rejects unsupported object types', () => {
     const result = SceneDocumentSchema.safeParse({
       ...validScene,
