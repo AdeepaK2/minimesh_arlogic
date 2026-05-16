@@ -6,6 +6,7 @@ import type {
   GenerationChatContext,
   SceneDocument,
 } from "@/lib/scene/types";
+import type { BuiltGltfDocument, LogicalGltfDocument } from "@/lib/scene/gltf-types";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ??
@@ -119,6 +120,7 @@ export async function createGenerationJob(
     | {
         action: Extract<GenerationJobAction, "edit-scene">;
         scene: SceneDocument;
+        logicalGltf?: LogicalGltfDocument;
         instruction: string;
         chatContext?: GenerationChatContext;
       }
@@ -168,6 +170,27 @@ export async function getGenerationJob(
   }
 
   return (await response.json()) as GenerationJobResponse;
+}
+
+export async function rebuildGltf(
+  logicalGltf: LogicalGltfDocument,
+  accessToken: string,
+): Promise<BuiltGltfDocument> {
+  const response = await safeFetch(`${API_BASE_URL}/generation/rebuild-gltf`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(logicalGltf),
+  });
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response);
+    throw new Error(message);
+  }
+
+  return (await response.json()) as BuiltGltfDocument;
 }
 
 async function safeFetch(url: string, init: RequestInit): Promise<Response> {

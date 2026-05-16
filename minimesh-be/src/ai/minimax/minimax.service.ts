@@ -63,7 +63,9 @@ export class MiniMaxService implements MiniMaxTextProvider {
       },
       body: JSON.stringify({
         model: this.model,
-        messages: request.messages,
+        // MiniMax chatcompletion_v2: strip `name`, merge multiple system messages
+        // into one (only a single system message is supported).
+        messages: this.prepareMessages(request.messages),
         max_completion_tokens: request.maxCompletionTokens ?? 4096,
         temperature: request.temperature ?? 0.6,
         stream: false,
@@ -100,6 +102,35 @@ export class MiniMaxService implements MiniMaxTextProvider {
         outputTokens: data.usage?.completion_tokens,
       },
     };
+  }
+
+  /**
+   * MiniMax chatcompletion_v2 limitations:
+   * - Does not accept the `name` field on messages.
+   * - Only supports a single system message.
+   * This method strips `name` and merges all consecutive / scattered system
+   * messages into one block separated by a divider.
+   */
+  private prepareMessages(
+    messages: MiniMaxChatRequest['messages'],
+  ): Array<{ role: string; content: string }> {
+    const systemParts: string[] = [];
+    const rest: Array<{ role: string; content: string }> = [];
+
+    for (const { role, content } of messages) {
+      if (role === 'system') {
+        systemParts.push(content);
+      } else {
+        rest.push({ role, content });
+      }
+    }
+
+    const merged: Array<{ role: string; content: string }> = [];
+    if (systemParts.length > 0) {
+      merged.push({ role: 'system', content: systemParts.join('\n\n') });
+    }
+    merged.push(...rest);
+    return merged;
   }
 
   private resolveEndpoint(baseUrl: string | undefined): string {

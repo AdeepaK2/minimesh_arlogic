@@ -11,6 +11,10 @@ import {
 import { ZodError } from 'zod';
 import { SupabaseAuthGuard } from '../../common/auth/supabase-auth.guard';
 import {
+  LogicalGltfDocumentSchema,
+  type BuiltGltfDocument,
+} from '../../schemas/logical-gltf.schema';
+import {
   ClarifySceneRequest,
   ClarifySceneRequestSchema,
 } from './dto/clarify-scene.dto';
@@ -37,6 +41,7 @@ import {
 } from './dto/generation-job.dto';
 import { GenerationJobsService } from './generation-jobs.service';
 import type { GenerationJobResponse } from './generation-job.types';
+import { GltfBuilderService } from './gltf-builder.service';
 
 @Controller('generation')
 @UseGuards(SupabaseAuthGuard)
@@ -44,6 +49,7 @@ export class GenerationController {
   constructor(
     private readonly generationService: GenerationService,
     private readonly generationJobsService: GenerationJobsService,
+    private readonly gltfBuilderService: GltfBuilderService,
   ) {}
 
   @Post('clarify')
@@ -106,6 +112,22 @@ export class GenerationController {
     }
 
     return job;
+  }
+
+  @Post('rebuild-gltf')
+  rebuildGltf(@Body() body: unknown): BuiltGltfDocument {
+    try {
+      const logicalGltf = LogicalGltfDocumentSchema.parse(body);
+      return this.gltfBuilderService.build(logicalGltf);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          message: 'Invalid logical glTF document.',
+          errors: error.issues.map((issue) => issue.message),
+        });
+      }
+      throw error;
+    }
   }
 
   private validateClarificationRequest(body: unknown): ClarifySceneRequest {

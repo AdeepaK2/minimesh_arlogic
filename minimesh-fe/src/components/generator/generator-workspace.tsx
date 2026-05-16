@@ -10,6 +10,7 @@ import {
   clarifyGenerationPrompt,
   createGenerationJob,
   getGenerationJob,
+  rebuildGltf,
 } from "@/lib/api/generation";
 import { getProject } from "@/lib/api/projects";
 import {
@@ -20,7 +21,8 @@ import {
   saveSceneVersion,
 } from "@/lib/api/scenes";
 import { approveReference } from "@/lib/api/templates";
-import { exportSceneToGlb } from "@/lib/scene/export-glb";
+import { exportGltfDocumentToGlb, exportSceneToGlb } from "@/lib/scene/export-glb";
+import type { BuiltGltfDocument, LogicalGltfDocument } from "@/lib/scene/gltf-types";
 import { importGlbToScene } from "@/lib/scene/import-glb";
 import {
   applyEntityTransform,
@@ -51,13 +53,47 @@ import type {
   SceneVersion,
 } from "@/lib/scene/types";
 import { EntityPanel } from "./entity-panel";
+import { LightPanel } from "./light-panel";
 import { PromptPanel } from "./prompt-panel";
 import { SceneListPanel, SceneVersionsPanel } from "./scene-library";
 import { StudioSidebar, type StudioSidebarView } from "./studio-sidebar";
 import { SceneViewport } from "../scene/scene-viewport";
+import { GltfViewport } from "../scene/gltf-viewport";
 
 interface GeneratorWorkspaceProps {
   projectId: string;
+}
+
+// candidateA is always MiniMax, candidateB is always GPT (OpenAI).
+  const CANDIDATE_PROVIDER: Record<string, string> = {
+  candidateA: "MiniMax M2.7",
+  candidateB: "GPT-5.4",
+};
+
+function logAgentResult(job: GenerationJobResponse) {
+  const review = job.result?.review;
+  if (!review) return;
+
+  const winner = CANDIDATE_PROVIDER[review.selectedCandidate] ?? review.selectedCandidate;
+  const judgedBy = review.judge === "gpt-5.4" ? "GPT-5.4 judge" : "heuristic score";
+
+  console.groupCollapsed(
+    `%c[MiniMesh] Agent result — winner: ${winner} (${judgedBy})`,
+    "color:#38bdf8;font-weight:bold",
+  );
+  console.log("Action :", job.action);
+  console.log("Winner :", winner, `(${review.selectedCandidate})`);
+  console.log("Judge  :", judgedBy);
+  console.table(
+    review.scores.map((s) => ({
+      candidate: s.candidate,
+      provider: CANDIDATE_PROVIDER[s.candidate] ?? s.candidate,
+      score: s.score,
+      valid: s.valid,
+      issues: s.issues.join("; ") || "—",
+    })),
+  );
+  console.groupEnd();
 }
 
 export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
@@ -75,6 +111,8 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
     GenerationJobStep[]
   >([]);
   const [scene, setScene] = useState<SceneDocument | null>(null);
+  const [gltfDocument, setGltfDocument] = useState<BuiltGltfDocument | null>(null);
+  const [logicalGltf, setLogicalGltf] = useState<LogicalGltfDocument | null>(null);
   const [pendingSceneName, setPendingSceneName] = useState<string | null>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [savedScenes, setSavedScenes] = useState<SavedScene[]>([]);
@@ -101,6 +139,7 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
   const [jsonDraft, setJsonDraft] = useState("{}");
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [isImportingGlb, setIsImportingGlb] = useState(false);
+  const [isRebuildingLights, setIsRebuildingLights] = useState(false);
   const glbInputRef = useRef<HTMLInputElement>(null);
   const [sidebarView, setSidebarView] = useState<StudioSidebarView>("agent");
   const { confirm, modal, prompt: promptModal } = useAppModal();
@@ -243,6 +282,7 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
       throw new Error(currentJob.error ?? "Scene generation job failed.");
     }
 
+    logAgentResult(currentJob);
     return currentJob;
   }
 
@@ -341,6 +381,7 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
           : await runSceneJob({
               action: "edit-scene",
               scene: previousScene,
+              ...(logicalGltf ? { logicalGltf } : {}),
               instruction: resolvedInstruction,
               chatContext,
             });
@@ -371,7 +412,7 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
         result.usage,
       );
 
-      applyScenePreview(nextScene);
+      applyScenePreview(nextScene, result.gltfDocument, result.logicalGltf);
       setSelectedEntityIds((current) => {
         const entityIds = new Set((nextScene.entities ?? []).map((e) => e.id));
 
@@ -501,7 +542,7 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
         result.usage,
       );
 
-      applyScenePreview(nextScene);
+      applyScenePreview(nextScene, result.gltfDocument, result.logicalGltf);
       setSelectedEntityIds(new Set());
       setWarnings(versionWarnings);
       setLastAppliedPrompt(option.resolvedPrompt);
@@ -818,7 +859,11 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
     setError(null);
 
     try {
-      await exportSceneToGlb(scene);
+      if (gltfDocument) {
+        await exportGltfDocumentToGlb(gltfDocument);
+      } else {
+        await exportSceneToGlb(scene);
+      }
     } catch {
       setError("GLB export failed in this browser session.");
     } finally {
@@ -1049,7 +1094,7 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
       if (!result) {
         throw new Error("Entity refinement job did not return a result.");
       }
-      applyScenePreview(result.scene);
+      applyScenePreview(result.scene, result.gltfDocument, result.logicalGltf);
       setWarnings(result.warnings);
       applyUsageState(result.usage);
     } catch (caughtError) {
@@ -1149,8 +1194,14 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
     setGenerationJobSteps([]);
   }
 
-  function applyScenePreview(nextScene: SceneDocument | null) {
+  function applyScenePreview(
+    nextScene: SceneDocument | null,
+    nextGltfDocument?: BuiltGltfDocument | null,
+    nextLogicalGltf?: LogicalGltfDocument | null,
+  ) {
     setScene(nextScene);
+    setGltfDocument(nextGltfDocument ?? null);
+    setLogicalGltf(nextLogicalGltf ?? null);
     setJsonDraft(nextScene ? JSON.stringify(nextScene, null, 2) : "{}");
     setJsonError(null);
   }
@@ -1194,6 +1245,29 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
           ? caughtError.message
           : "Scene JSON could not be parsed.",
       );
+    }
+  }
+
+  async function handleLightChange(
+    index: number,
+    patch: Partial<LogicalGltfDocument["lights"][number]>,
+  ) {
+    if (!logicalGltf || !accessToken) return;
+
+    const updatedLights = logicalGltf.lights.map((l, i) =>
+      i === index ? { ...l, ...patch } : l,
+    );
+    const updatedLogicalGltf: LogicalGltfDocument = { ...logicalGltf, lights: updatedLights };
+    setLogicalGltf(updatedLogicalGltf);
+
+    setIsRebuildingLights(true);
+    try {
+      const newGltfDoc = await rebuildGltf(updatedLogicalGltf, accessToken);
+      setGltfDocument(newGltfDoc);
+    } catch (err) {
+      console.error("[LightPanel] Failed to rebuild scene:", err);
+    } finally {
+      setIsRebuildingLights(false);
     }
   }
 
@@ -1331,6 +1405,14 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
             onTransformChange={handleTransformEntity}
           />
         }
+        lights={
+          <LightPanel
+            embedded
+            lights={logicalGltf?.lights ?? []}
+            isRebuilding={isRebuildingLights}
+            onLightChange={(index, patch) => void handleLightChange(index, patch)}
+          />
+        }
       />
 
       <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
@@ -1396,7 +1478,26 @@ export function GeneratorWorkspace({ projectId }: GeneratorWorkspaceProps) {
         </header>
 
         <div className="min-h-0 flex-1 p-3">
-          {scene ? (
+          {gltfDocument ? (
+            <GltfViewport
+              gltfDocument={gltfDocument}
+              isolatedEntityId={isolatedEntityId}
+              lightsForEdit={sidebarView === "lights" && logicalGltf ? logicalGltf.lights : undefined}
+              selectedEntityId={selectedEntityId}
+              selectedEntityIds={selectedEntityIdsArray}
+              selectedEntityName={
+                selectedEntities.length > 0 ? selectedEntityLabel : null
+              }
+              onClearSelection={() => handleSelectEntity(null)}
+              onFocusSelected={handleFocusEntity}
+              onLightMove={(index, position) => void handleLightChange(index, { position })}
+              onSelectEntity={(entityId, additive) => {
+                handleSelectEntity(entityId, additive);
+              }}
+              onToggleIsolate={handleToggleIsolate}
+              onViewPreset={handleViewPreset}
+            />
+          ) : scene ? (
             <SceneViewport
               isolatedEntityId={isolatedEntityId}
               scene={scene}

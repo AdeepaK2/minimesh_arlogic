@@ -100,6 +100,10 @@ export interface SceneFragment {
 
 export interface GenerateSceneResponse {
   scene: SceneDocument;
+  /** Full glTF 2.0 document with binary buffers for GLTFLoader rendering. */
+  gltfDocument?: import("@/lib/scene/gltf-types").BuiltGltfDocument;
+  /** The logical (LLM-generated) glTF document stored in the DB. */
+  logicalGltf?: import("@/lib/scene/gltf-types").LogicalGltfDocument;
   warnings: string[];
   usage?: GenerationUsage;
   review?: GenerationJobReview;
@@ -131,7 +135,7 @@ export interface GenerationJobReview {
     valid: boolean;
     issues: string[];
   }>;
-  judge?: "heuristic" | "gpt-5.4-mini";
+  judge?: "heuristic" | "gpt-5.4";
 }
 
 export interface GenerationJobResponse {
@@ -219,6 +223,7 @@ export interface SavedScene {
   name: string;
   description: string | null;
   latestScene: SceneDocument;
+  latestSceneGltf?: import("@/lib/scene/gltf-types").LogicalGltfDocument | null;
   latestPrompt: string | null;
   latestVersionNumber: number;
   memory: SceneMemoryMetadata;

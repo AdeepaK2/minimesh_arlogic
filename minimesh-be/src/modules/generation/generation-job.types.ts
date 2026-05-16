@@ -1,4 +1,5 @@
 import type { SceneDocument } from '../../schemas/scene.schema';
+import type { LogicalGltfDocument } from '../../schemas/logical-gltf.schema';
 import type { ChatContext, GenerationUsage } from './generation-context.types';
 import type { GenerateSceneResult } from './generation.service';
 
@@ -28,7 +29,7 @@ export interface GenerationJobReview {
     valid: boolean;
     issues: string[];
   }>;
-  judge?: 'heuristic' | 'gpt-5.4-mini';
+  judge?: 'heuristic' | 'gpt-5.4';
 }
 
 export interface GenerationJobResult extends GenerateSceneResult {
@@ -51,6 +52,8 @@ export interface GenerationJobRequest {
   prompt?: string;
   instruction?: string;
   scene?: SceneDocument;
+  /** Optional: pass the stored logical glTF to use the glTF edit path. */
+  logicalGltf?: LogicalGltfDocument;
   entityId?: string;
   chatContext?: ChatContext;
 }
