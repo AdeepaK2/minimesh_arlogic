@@ -3,8 +3,8 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Grid, Html, OrbitControls, TransformControls } from "@react-three/drei";
 import { Canvas, useThree } from "@react-three/fiber";
-import { ACESFilmicToneMapping, MOUSE } from "three";
-import type { Group, Mesh, MeshStandardMaterial, Object3D } from "three";
+import { ACESFilmicToneMapping, Mesh, MOUSE } from "three";
+import type { Group, MeshStandardMaterial, Object3D } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { BuiltGltfDocument, LogicalGltfDocument } from "@/lib/scene/gltf-types";
 import type { ViewPreset } from "@/lib/scene/entities";
@@ -168,8 +168,8 @@ function GltfScene({ gltfDocument, isolatedEntityId, selectedEntityIds, onSelect
       if (cancelled) return;
 
       gltf.scene.traverse((obj) => {
-        if (!obj.isMesh) return;
-        const mesh = obj as Mesh;
+        if (!(obj instanceof Mesh)) return;
+        const mesh = obj;
         const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
         for (const mat of mats) {
           const m = mat as MeshStandardMaterial;
@@ -201,8 +201,8 @@ function GltfScene({ gltfDocument, isolatedEntityId, selectedEntityIds, onSelect
   useEffect(() => {
     if (!loadedGroup) return;
     loadedGroup.traverse((obj) => {
-      if (!obj.isMesh) return;
-      const mesh = obj as Mesh;
+      if (!(obj instanceof Mesh)) return;
+      const mesh = obj;
       const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       const eid = getEntityId(obj);
       const isSelected = eid ? selectedEntityIds.has(eid) : false;
