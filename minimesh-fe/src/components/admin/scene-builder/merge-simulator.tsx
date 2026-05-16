@@ -47,7 +47,7 @@ export function MergeSimulator({
         type="button"
         disabled={selectedIds.length === 0}
         onClick={onSimulate}
-        className="mt-3 w-full rounded-lg border border-cyan-500/30 bg-cyan-500/10 py-2 text-xs font-semibold text-cyan-200 transition hover:bg-cyan-500/20 disabled:opacity-40"
+        className="admin-btn-primary mt-3 w-full rounded-lg py-2 text-xs font-semibold disabled:opacity-40"
       >
         Simulate merge ({selectedIds.length})
       </button>

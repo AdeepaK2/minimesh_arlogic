@@ -186,6 +186,12 @@ textarea {
   --landing-glow-b: rgba(109, 40, 217, 0.09);
   --landing-accent: #0891b2;
   --landing-grid-line: rgb(8 145 178 / 0.08);
+  --minimesh-grad-cyan: #06b6d4;
+  --minimesh-grad-blue: #3b82f6;
+  --minimesh-grad-purple: #a78bfa;
+  --minimesh-gradient-shadow:
+    0 8px 22px -10px rgb(6 182 212 / 0.32),
+    0 6px 18px -12px rgb(167 139 250 / 0.18);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -207,6 +213,11 @@ textarea {
     --landing-glow-b: rgba(167, 139, 250, 0.14);
     --landing-accent: #22d3ee;
     --landing-grid-line: rgb(34 211 238 / 0.06);
+    --minimesh-grad-cyan: #22d3ee;
+    --minimesh-grad-purple: #8b5cf6;
+    --minimesh-gradient-shadow:
+      0 10px 28px -8px rgb(6 182 212 / 0.45),
+      0 8px 22px -10px rgb(139 92 246 / 0.28);
   }
 }
 
@@ -377,16 +388,28 @@ textarea {
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
-  background: linear-gradient(to right, #06b6d4, #8b5cf6);
+  border: 1px solid rgb(255 255 255 / 0.12);
+  background: linear-gradient(
+    to right,
+    var(--minimesh-grad-cyan, #06b6d4),
+    var(--minimesh-grad-blue, #3b82f6),
+    var(--minimesh-grad-purple, #a78bfa)
+  );
   font-size: 0.875rem;
   font-weight: 600;
   color: #fff;
-  box-shadow: 0 10px 25px -8px rgb(6 182 212 / 0.45);
-  transition: filter 0.2s ease, opacity 0.2s ease;
+  box-shadow: var(--minimesh-gradient-shadow, 0 10px 25px -8px rgb(6 182 212 / 0.4));
+  transition:
+    filter 0.2s ease,
+    opacity 0.2s ease,
+    box-shadow 0.25s ease;
 }
 
 .minimesh-btn-primary:hover:not(:disabled) {
-  filter: brightness(1.08);
+  filter: brightness(1.06);
+  box-shadow:
+    var(--minimesh-gradient-shadow, 0 10px 25px -8px rgb(6 182 212 / 0.4)),
+    0 0 28px -6px rgb(59 130 246 / 0.35);
 }
 
 .minimesh-btn-primary:disabled {
@@ -421,35 +444,65 @@ textarea {
   color: rgb(252 211 77);
 }
 
-/* Admin portal — light by default; dark via data-admin-theme on <html> */
+/* Admin portal — same palette as Sign In / minimesh-branded (data-admin-theme on <html>) */
 .minimesh-admin {
   color-scheme: light;
-  --landing-bg: #f4f7fb;
-  --landing-fg: #1e293b;
-  --landing-heading: #0f172a;
-  --landing-muted: #475569;
-  --landing-subtle: #64748b;
-  --landing-border: rgb(15 23 42 / 0.08);
-  --landing-surface: #ffffff;
-  --landing-card: #ffffff;
-  --landing-card-shadow: 0 1px 2px rgb(15 23 42 / 0.06), 0 4px 16px rgb(15 23 42 / 0.04);
-  --landing-code: #eef2f7;
-  --landing-hover: rgb(8 145 178 / 0.06);
+  /* Matches :root landing light (auth sign-in) */
+  --landing-bg: #eef4fb;
+  --landing-bg-top: #e3f2fa;
+  --landing-bg-bottom: #ebe6f8;
+  --landing-fg: #1a1a22;
+  --landing-heading: #0c0c10;
+  --landing-muted: #5a5a6e;
+  --landing-subtle: #6b6b7d;
+  --landing-border: rgb(15 23 42 / 0.1);
+  --landing-surface: rgb(255 255 255 / 0.82);
+  --landing-card: rgb(255 255 255 / 0.92);
+  --landing-card-shadow:
+    0 1px 0 rgb(255 255 255 / 0.9) inset,
+    0 8px 32px rgb(15 23 42 / 0.06),
+    0 12px 40px -12px rgb(139 92 246 / 0.08);
+  --landing-code: #e8ecf4;
+  --landing-hover: rgb(6 182 212 / 0.08);
   --landing-accent: #0891b2;
-  --landing-glow-a: rgba(8, 145, 178, 0.05);
-  --landing-glow-b: transparent;
-  --landing-grid-line: rgb(8 145 178 / 0.06);
-  --admin-chart-cyan: #0891b2;
-  --admin-chart-accent: #0ea5e9;
+  --landing-glow-a: rgba(8, 145, 178, 0.16);
+  --landing-glow-b: rgba(167, 139, 250, 0.14);
+  --landing-grid-line: rgb(8 145 178 / 0.07);
+  --admin-chart-cyan: #06b6d4;
+  --admin-chart-accent: #a78bfa;
+  --admin-gradient-end: #a78bfa;
+  --minimesh-grad-cyan: #06b6d4;
+  --minimesh-grad-blue: #3b82f6;
+  --minimesh-grad-purple: #a78bfa;
+  --minimesh-gradient: linear-gradient(
+    to right,
+    var(--minimesh-grad-cyan),
+    var(--minimesh-grad-blue),
+    var(--minimesh-grad-purple)
+  );
+  --minimesh-gradient-soft: linear-gradient(
+    to right,
+    rgb(6 182 212 / 0.12),
+    rgb(59 130 246 / 0.08),
+    rgb(167 139 250 / 0.1)
+  );
+  --minimesh-gradient-shadow:
+    0 8px 22px -10px rgb(6 182 212 / 0.32),
+    0 6px 18px -12px rgb(167 139 250 / 0.18);
+  --minimesh-gradient-hover-shadow:
+    0 10px 28px -8px rgb(6 182 212 / 0.38),
+    0 8px 24px -10px rgb(139 92 246 / 0.22);
   color: var(--landing-fg);
   transition:
-    background-color 0.25s ease,
-    color 0.25s ease,
-    border-color 0.25s ease;
+    background-color 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
 }
 
 html[data-admin-theme="dark"] .minimesh-admin {
   color-scheme: dark;
+  /* Matches :root @media (prefers-color-scheme: dark) */
   --landing-bg: #0a0a0f;
   --landing-fg: #f4f4f5;
   --landing-heading: #ffffff;
@@ -467,6 +520,22 @@ html[data-admin-theme="dark"] .minimesh-admin {
   --landing-grid-line: rgb(34 211 238 / 0.06);
   --admin-chart-cyan: #22d3ee;
   --admin-chart-accent: #a78bfa;
+  --admin-gradient-end: #8b5cf6;
+  --minimesh-grad-cyan: #22d3ee;
+  --minimesh-grad-blue: #3b82f6;
+  --minimesh-grad-purple: #8b5cf6;
+  --minimesh-gradient-soft: linear-gradient(
+    to right,
+    rgb(34 211 238 / 0.14),
+    rgb(59 130 246 / 0.1),
+    rgb(139 92 246 / 0.12)
+  );
+  --minimesh-gradient-shadow:
+    0 10px 28px -8px rgb(6 182 212 / 0.45),
+    0 8px 22px -10px rgb(139 92 246 / 0.28);
+  --minimesh-gradient-hover-shadow:
+    0 12px 32px -6px rgb(34 211 238 / 0.5),
+    0 10px 28px -8px rgb(139 92 246 / 0.35);
 }
 
 .minimesh-admin .text-admin-heading {
@@ -531,17 +600,21 @@ html[data-admin-theme="dark"] .minimesh-admin {
   background-color: rgb(0 0 0 / 0.25);
 }
 
-.minimesh-admin .admin-panel {
-  overflow: hidden;
-  border-radius: 0.75rem;
+.minimesh-admin .admin-panel,
+.minimesh-admin .minimesh-glass-card {
   border: 1px solid var(--landing-border);
   background: var(--landing-card);
   box-shadow: var(--landing-card-shadow);
+  backdrop-filter: blur(20px);
+}
+
+.minimesh-admin .admin-panel {
+  overflow: hidden;
+  border-radius: 0.75rem;
 }
 
 html[data-admin-theme="dark"] .minimesh-admin .admin-panel {
   background: var(--landing-surface);
-  box-shadow: none;
   backdrop-filter: blur(24px);
 }
 
@@ -549,16 +622,34 @@ html[data-admin-theme="dark"] .minimesh-admin .admin-panel {
   background-color: var(--landing-code);
 }
 
+/* Light: cyan top → lavender bottom (reference palette) + grid */
 .minimesh-admin.admin-mesh-bg {
   background-color: var(--landing-bg);
   background-image:
+    linear-gradient(
+      180deg,
+      var(--landing-bg-top) 0%,
+      var(--landing-bg) 42%,
+      var(--landing-bg-bottom) 100%
+    ),
     linear-gradient(var(--landing-grid-line) 1px, transparent 1px),
     linear-gradient(90deg, var(--landing-grid-line) 1px, transparent 1px),
-    radial-gradient(ellipse 70% 50% at 50% -10%, var(--landing-glow-a), transparent);
-  background-size: 48px 48px, 48px 48px, 100% 100%;
+    radial-gradient(ellipse 85% 55% at 50% -5%, var(--landing-glow-a), transparent),
+    radial-gradient(ellipse 75% 50% at 50% 105%, var(--landing-glow-b), transparent),
+    radial-gradient(ellipse 45% 40% at 95% 40%, rgba(167, 139, 250, 0.1), transparent);
+  background-size:
+    100% 100%,
+    48px 48px,
+    48px 48px,
+    100% 100%,
+    100% 100%,
+    100% 100%;
 }
 
 html[data-admin-theme="dark"] .minimesh-admin.admin-mesh-bg {
+  --landing-bg-top: var(--landing-bg);
+  --landing-bg-bottom: var(--landing-bg);
+  background-color: var(--landing-bg);
   background-image:
     linear-gradient(var(--landing-grid-line) 1px, transparent 1px),
     linear-gradient(90deg, var(--landing-grid-line) 1px, transparent 1px),
@@ -568,23 +659,39 @@ html[data-admin-theme="dark"] .minimesh-admin.admin-mesh-bg {
 }
 
 .minimesh-admin .hero-glow {
-  display: none;
+  display: block;
+  opacity: 0.9;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, var(--landing-glow-a), transparent),
+    radial-gradient(ellipse 65% 45% at 50% 110%, rgba(167, 139, 250, 0.2), transparent),
+    radial-gradient(ellipse 55% 40% at 85% 50%, var(--landing-glow-b), transparent);
 }
 
 html[data-admin-theme="dark"] .minimesh-admin .hero-glow {
-  display: block;
+  opacity: 1;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, var(--landing-glow-a), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 50%, var(--landing-glow-b), transparent);
 }
 
-.minimesh-admin .admin-glass {
-  box-shadow: 0 0 0 1px rgb(15 23 42 / 0.05) inset;
+.minimesh-admin .admin-glass.minimesh-glass-card {
+  box-shadow:
+    var(--landing-card-shadow),
+    0 0 0 1px rgb(6 182 212 / 0.06) inset;
 }
 
-html[data-admin-theme="dark"] .minimesh-admin .admin-glass {
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+html[data-admin-theme="dark"] .minimesh-admin .admin-glass.minimesh-glass-card {
+  box-shadow:
+    var(--landing-card-shadow),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
 }
 
 .minimesh-admin .admin-glow-border {
-  box-shadow: 0 1px 3px rgb(15 23 42 / 0.08);
+  box-shadow:
+    var(--landing-card-shadow),
+    0 0 0 1px rgb(6 182 212 / 0.12),
+    0 8px 28px -10px rgb(6 182 212 / 0.18),
+    0 12px 36px -12px rgb(167 139 250 / 0.12);
 }
 
 html[data-admin-theme="dark"] .minimesh-admin .admin-glow-border {
@@ -594,80 +701,186 @@ html[data-admin-theme="dark"] .minimesh-admin .admin-glow-border {
 }
 
 .minimesh-admin .admin-nav-link-active {
-  background: rgb(8 145 178 / 0.1);
-  color: #0e7490;
-  box-shadow: inset 3px 0 0 #0891b2;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  background: var(--minimesh-gradient);
+  color: #fff !important;
+  box-shadow:
+    var(--minimesh-gradient-shadow),
+    inset 0 1px 0 rgb(255 255 255 / 0.18);
 }
 
-html[data-admin-theme="dark"] .minimesh-admin .admin-nav-link-active {
-  background: rgb(34 211 238 / 0.1);
-  color: rgb(103 232 249);
-  box-shadow: inset 3px 0 0 #22d3ee;
+.minimesh-admin .admin-nav-link-active:hover {
+  filter: brightness(1.04);
+  box-shadow: var(--minimesh-gradient-hover-shadow);
 }
 
 .minimesh-admin .admin-nav-dot {
-  background: #0891b2;
+  background: #fff;
+  box-shadow: 0 0 8px rgb(255 255 255 / 0.55);
 }
 
-html[data-admin-theme="dark"] .minimesh-admin .admin-nav-dot {
-  background: #22d3ee;
-  box-shadow: 0 0 8px #22d3ee;
+.minimesh-admin .admin-theme-toggle-active,
+.minimesh-admin .admin-segment-active,
+.minimesh-admin .admin-tab-active,
+.minimesh-admin .admin-chip-active {
+  border: 1px solid rgb(255 255 255 / 0.12);
+  background: var(--minimesh-gradient);
+  color: #fff !important;
+  box-shadow: var(--minimesh-gradient-shadow);
+  transition:
+    filter 0.2s ease,
+    box-shadow 0.25s ease;
 }
 
-.minimesh-admin .admin-theme-toggle-active {
-  background: linear-gradient(to right, #0891b2, #0e7490);
+.minimesh-admin .admin-theme-toggle-active:hover,
+.minimesh-admin .admin-segment-active:hover,
+.minimesh-admin .admin-tab-active:hover,
+.minimesh-admin .admin-chip-active:hover {
+  filter: brightness(1.05);
 }
 
-html[data-admin-theme="dark"] .minimesh-admin .admin-theme-toggle-active {
-  background: linear-gradient(to right, #06b6d4, #8b5cf6);
+.minimesh-admin .admin-segment-wrap {
+  border-radius: 0.75rem;
+  border: 1px solid var(--landing-border);
+  background: var(--landing-card);
+  padding: 0.25rem;
+}
+
+.minimesh-admin .admin-segment-btn {
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--landing-muted);
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.25s ease;
+}
+
+.minimesh-admin .admin-segment-btn:hover:not(.admin-segment-active) {
+  background: var(--minimesh-gradient-soft);
+  color: var(--landing-heading);
 }
 
 .minimesh-admin .admin-btn-primary,
 .minimesh-admin .minimesh-btn-primary {
-  background: linear-gradient(to right, #0891b2, #0e7490) !important;
-  box-shadow: 0 4px 14px -6px rgb(8 145 178 / 0.45) !important;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  background: var(--minimesh-gradient) !important;
+  color: #fff !important;
+  box-shadow: var(--minimesh-gradient-shadow) !important;
 }
 
-html[data-admin-theme="dark"] .minimesh-admin .admin-btn-primary,
-html[data-admin-theme="dark"] .minimesh-admin .minimesh-btn-primary {
-  background: linear-gradient(to right, #06b6d4, #8b5cf6) !important;
-  box-shadow: 0 10px 25px -8px rgb(6 182 212 / 0.45) !important;
+.minimesh-admin .admin-btn-primary:hover:not(:disabled),
+.minimesh-admin .minimesh-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+  box-shadow: var(--minimesh-gradient-hover-shadow) !important;
+}
+
+.minimesh-admin .admin-btn-outline {
+  border: 1px solid rgb(6 182 212 / 0.28);
+  color: var(--landing-accent);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.25s ease,
+    background 0.2s ease;
+}
+
+.minimesh-admin .admin-btn-outline:hover {
+  border-color: rgb(59 130 246 / 0.45);
+  background: var(--minimesh-gradient-soft);
+  box-shadow: 0 0 20px -8px rgb(6 182 212 / 0.35);
+}
+
+html[data-admin-theme="dark"] .minimesh-admin .admin-btn-outline {
+  border-color: rgb(34 211 238 / 0.28);
+}
+
+html[data-admin-theme="dark"] .minimesh-admin .admin-btn-outline:hover {
+  border-color: rgb(59 130 246 / 0.5);
+  box-shadow: 0 0 24px -6px rgb(34 211 238 / 0.35);
+}
+
+.minimesh-admin .admin-list-item-active {
+  border-color: rgb(59 130 246 / 0.35) !important;
+  background: var(--minimesh-gradient-soft) !important;
+  box-shadow:
+    var(--minimesh-gradient-shadow),
+    inset 0 0 0 1px rgb(255 255 255 / 0.06);
+}
+
+.minimesh-admin tr.admin-list-item-active {
+  box-shadow: inset 3px 0 0 transparent;
+  background: var(--minimesh-gradient-soft) !important;
+}
+
+.minimesh-admin .admin-card-hover {
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.minimesh-admin .admin-card-hover:hover {
+  border-color: rgb(59 130 246 / 0.28) !important;
+  box-shadow:
+    var(--landing-card-shadow),
+    0 0 28px -10px rgb(6 182 212 / 0.22),
+    0 0 24px -12px rgb(167 139 250 / 0.14);
+}
+
+html[data-admin-theme="dark"] .minimesh-admin .admin-card-hover:hover {
+  box-shadow:
+    var(--landing-card-shadow),
+    0 0 32px -8px rgb(34 211 238 / 0.28),
+    0 0 28px -10px rgb(139 92 246 / 0.2);
+}
+
+.minimesh-admin .admin-toggle-track:has(:checked) {
+  background: var(--minimesh-gradient) !important;
+  box-shadow: var(--minimesh-gradient-shadow);
 }
 
 .minimesh-admin .admin-accent-bar {
-  background: linear-gradient(to right, #0891b2, #0ea5e9);
-}
-
-html[data-admin-theme="dark"] .minimesh-admin .admin-accent-bar {
-  background: linear-gradient(to right, #22d3ee, #a78bfa);
+  background: var(--minimesh-gradient);
 }
 
 .minimesh-admin .admin-avatar {
-  background: linear-gradient(to bottom right, #0891b2, #0e7490);
-}
-
-html[data-admin-theme="dark"] .minimesh-admin .admin-avatar {
-  background: linear-gradient(to bottom right, #06b6d4, #8b5cf6);
+  background: linear-gradient(
+    to bottom right,
+    var(--minimesh-grad-cyan),
+    var(--minimesh-grad-blue),
+    var(--minimesh-grad-purple)
+  );
+  box-shadow: var(--minimesh-gradient-shadow);
 }
 
 .minimesh-admin .admin-icon-tile {
-  border-color: rgb(8 145 178 / 0.2);
-  background: rgb(8 145 178 / 0.08);
-  color: #0e7490;
+  border-color: rgb(6 182 212 / 0.22);
+  background: linear-gradient(
+    to bottom right,
+    rgb(6 182 212 / 0.12),
+    rgb(167 139 250 / 0.12)
+  );
+  color: #0891b2;
 }
 
 html[data-admin-theme="dark"] .minimesh-admin .admin-icon-tile {
   border-color: rgb(34 211 238 / 0.2);
-  background: linear-gradient(to bottom right, rgb(34 211 238 / 0.2), rgb(139 92 246 / 0.1));
+  background: linear-gradient(
+    to bottom right,
+    rgb(34 211 238 / 0.2),
+    rgb(139 92 246 / 0.1)
+  );
   color: rgb(165 243 252);
 }
 
 .minimesh-admin .admin-panel-accent {
-  border-color: rgb(8 145 178 / 0.15);
+  border-color: rgb(6 182 212 / 0.2);
   background: linear-gradient(
     to bottom right,
-    rgb(8 145 178 / 0.05),
-    transparent
+    rgb(6 182 212 / 0.08),
+    rgb(167 139 250 / 0.1),
+    rgb(237 233 254 / 0.5)
   );
 }
 
@@ -682,12 +895,12 @@ html[data-admin-theme="dark"] .minimesh-admin .admin-panel-accent {
 }
 
 .minimesh-admin .admin-inspector-panel {
-  border-color: rgb(8 145 178 / 0.2);
-  background: rgb(8 145 178 / 0.04);
+  border-color: rgb(6 182 212 / 0.22);
+  background: rgb(6 182 212 / 0.06);
 }
 
 .minimesh-admin .admin-inspector-panel .minimesh-eyebrow {
-  color: #0e7490;
+  color: #0891b2;
 }
 
 html[data-admin-theme="dark"] .minimesh-admin .admin-inspector-panel {
@@ -699,25 +912,70 @@ html[data-admin-theme="dark"] .minimesh-admin .admin-inspector-panel .minimesh-e
   color: rgb(196 181 253);
 }
 
+.minimesh-admin .admin-status-pill {
+  border-color: rgb(6 182 212 / 0.35);
+  background: rgb(6 182 212 / 0.1);
+  box-shadow: 0 0 16px -4px rgb(6 182 212 / 0.35);
+}
+
+.minimesh-admin .admin-status-pill-dot {
+  background: #06b6d4;
+}
+
+.minimesh-admin .admin-status-pill-text {
+  color: #0891b2;
+}
+
+html[data-admin-theme="dark"] .minimesh-admin .admin-status-pill {
+  border-color: rgb(34 211 238 / 0.35);
+  background: rgb(34 211 238 / 0.1);
+  box-shadow: 0 0 16px -4px rgb(34 211 238 / 0.35);
+}
+
+html[data-admin-theme="dark"] .minimesh-admin .admin-status-pill-dot {
+  background: #22d3ee;
+}
+
+html[data-admin-theme="dark"] .minimesh-admin .admin-status-pill-text {
+  color: #67e8f9;
+}
+
 .minimesh-admin .admin-pulse {
   animation: admin-pulse 2s ease-in-out infinite;
 }
 
-html[data-admin-theme="light"] .minimesh-admin .admin-pulse {
-  animation: none;
-  box-shadow: none;
-}
-
 .minimesh-admin .admin-nav-link-active svg {
-  color: #0e7490;
+  color: #fff !important;
 }
 
-html[data-admin-theme="dark"] .minimesh-admin .admin-nav-link-active svg {
-  color: #22d3ee;
+.minimesh-admin .admin-gradient-text {
+  background: var(--minimesh-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Marketing / auth compact theme toggle — same signature gradient as Sign In */
+.minimesh-segment-active {
+  border: 1px solid rgb(255 255 255 / 0.12);
+  background: linear-gradient(to right, #06b6d4, #3b82f6, #a78bfa);
+  color: #fff !important;
+  box-shadow: 0 6px 18px -8px rgb(6 182 212 / 0.38);
+}
+
+:root[data-theme="dark"] .minimesh-segment-active,
+html[data-admin-theme="dark"] .minimesh-segment-active {
+  background: linear-gradient(to right, #22d3ee, #3b82f6, #8b5cf6);
+  box-shadow: 0 8px 22px -8px rgb(34 211 238 / 0.42);
+}
+
+.minimesh-admin .minimesh-input:focus {
+  border-color: rgb(34 211 238 / 0.45);
+  box-shadow: 0 0 0 3px rgb(6 182 212 / 0.15);
 }
 
 .minimesh-admin .admin-donut-track {
-  stroke: rgb(15 23 42 / 0.08);
+  stroke: rgb(6 182 212 / 0.12);
 }
 
 html[data-admin-theme="dark"] .minimesh-admin .admin-donut-track {
@@ -725,21 +983,51 @@ html[data-admin-theme="dark"] .minimesh-admin .admin-donut-track {
 }
 
 .minimesh-admin .admin-bar {
-  background: linear-gradient(to top, #0891b2, rgb(8 145 178 / 0.15));
+  background: linear-gradient(
+    to top,
+    var(--minimesh-grad-cyan),
+    rgb(59 130 246 / 0.35),
+    rgb(167 139 250 / 0.12)
+  );
 }
 
 html[data-admin-theme="dark"] .minimesh-admin .admin-bar {
-  background: linear-gradient(to top, rgb(34 211 238 / 0.8), rgb(34 211 238 / 0.2));
+  background: linear-gradient(
+    to top,
+    var(--minimesh-grad-cyan),
+    rgb(59 130 246 / 0.45),
+    rgb(139 92 246 / 0.15)
+  );
 }
 
 @keyframes admin-pulse {
   0%,
   100% {
     opacity: 1;
-    box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.5);
+    box-shadow:
+      0 0 0 0 rgb(6 182 212 / 0.45),
+      0 0 0 0 rgb(139 92 246 / 0.2);
   }
   50% {
-    opacity: 0.7;
-    box-shadow: 0 0 0 6px rgba(34, 211, 238, 0);
+    opacity: 0.85;
+    box-shadow:
+      0 0 0 5px rgb(6 182 212 / 0),
+      0 0 12px -2px rgb(139 92 246 / 0.35);
+  }
+}
+
+html[data-admin-theme="dark"] .minimesh-admin .admin-pulse {
+  animation: admin-pulse-dark 2s ease-in-out infinite;
+}
+
+@keyframes admin-pulse-dark {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgb(34 211 238 / 0.5);
+  }
+  50% {
+    opacity: 0.8;
+    box-shadow: 0 0 0 6px rgb(34 211 238 / 0);
   }
 }

@@ -73,7 +73,7 @@ export function CategoryField({
             type="button"
             onClick={commitCustomCategory}
             disabled={!normalizeCategory(customDraft)}
-            className="rounded-lg border border-cyan-500/40 bg-cyan-500/15 px-3 py-1.5 text-[11px] font-semibold text-cyan-200 transition hover:bg-cyan-500/25 disabled:opacity-40"
+            className="admin-chip-active rounded-lg px-3 py-1.5 text-[11px] font-semibold disabled:opacity-40"
           >
             Add category
           </button>

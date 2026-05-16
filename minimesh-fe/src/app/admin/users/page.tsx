@@ -73,7 +73,7 @@ export default function AdminUsersPage() {
                   <tr
                     key={u.id}
                     className={`border-b border-white/5 transition hover:bg-white/[0.02] ${
-                      selected === u.id ? "bg-cyan-500/5" : ""
+                      selected === u.id ? "admin-list-item-active" : ""
                     }`}
                   >
                     <td className="px-5 py-4">

@@ -62,8 +62,8 @@ export function PreviewPanel({
               onClick={toggle.action}
               className={`rounded-lg px-2.5 py-1 text-[10px] font-semibold transition ${
                 toggle.on
-                  ? "border border-cyan-500/40 bg-cyan-500/15 text-cyan-200"
-                  : "border border-white/10 text-zinc-500 hover:text-zinc-300"
+                  ? "admin-tab-active border-0 px-2.5 py-1"
+                  : "admin-segment-btn border border-white/10 text-zinc-500 hover:text-zinc-300"
               }`}
             >
               {toggle.label}
@@ -72,7 +72,7 @@ export function PreviewPanel({
           <button
             type="button"
             onClick={onCenter}
-            className="rounded-lg border border-white/10 px-2.5 py-1 text-[10px] font-semibold text-zinc-400 hover:border-cyan-500/30 hover:text-cyan-200"
+            className="admin-segment-btn rounded-lg border border-white/10 px-2.5 py-1 text-[10px] font-semibold text-zinc-400"
           >
             Center
           </button>

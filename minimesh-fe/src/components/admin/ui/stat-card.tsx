@@ -10,7 +10,7 @@ interface StatCardProps {
 export function StatCard({ label, value, change, trend }: StatCardProps) {
   const up = trend === "up";
   return (
-    <GlassCard className="p-5 transition hover:border-cyan-500/30" glow>
+    <GlassCard className="admin-card-hover p-5" glow>
       <p className="minimesh-eyebrow tracking-wider">{label}</p>
       <p className="mt-2 text-2xl font-bold tracking-tight text-landing-heading">{value}</p>
       <p

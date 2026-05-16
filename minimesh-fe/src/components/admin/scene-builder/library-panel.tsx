@@ -88,8 +88,8 @@ export function LibraryPanel({
               <div
                 className={`rounded-xl border transition ${
                   selectedId === template.id
-                    ? "admin-glow-border border-cyan-500/40 bg-cyan-500/10"
-                    : "border-landing bg-landing-card hover:border-cyan-500/25 hover:bg-landing-hover"
+                    ? "admin-list-item-active admin-glow-border"
+                    : "border-landing bg-landing-card admin-card-hover hover:bg-landing-hover"
                 }`}
               >
               <button
@@ -132,7 +132,7 @@ export function LibraryPanel({
                 <button
                   type="button"
                   onClick={() => onEdit(template)}
-                  className="flex-1 rounded-lg border border-white/10 py-1.5 text-[10px] font-semibold text-cyan-300 hover:border-cyan-500/30"
+                  className="admin-btn-outline flex-1 rounded-lg py-1.5 text-[10px] font-semibold"
                 >
                   Edit
                 </button>

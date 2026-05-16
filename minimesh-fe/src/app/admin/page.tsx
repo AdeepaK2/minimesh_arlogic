@@ -13,7 +13,7 @@ import {
 export default function AdminDashboardPage() {
   const donutSegments = exportStats.map((e, i) => ({
     value: e.pct,
-    color: ["#0891b2", "#0e7490", "#14b8a6", "#0284c7"][i] ?? "#64748b",
+    color: ["#06b6d4", "#3b82f6", "#a78bfa", "#0891b2"][i] ?? "#64748b",
   }));
 
   return (
@@ -106,7 +106,7 @@ export default function AdminDashboardPage() {
           {activityFeed.map((a, i) => (
             <li key={i} className="flex gap-4 py-3 text-sm">
               <span className="w-16 shrink-0 font-mono text-xs text-landing-subtle">{a.time}</span>
-              <span className="font-medium text-cyan-300/90">{a.event}</span>
+              <span className="font-medium admin-gradient-text">{a.event}</span>
               <span className="truncate text-landing-subtle">{a.detail}</span>
             </li>
           ))}

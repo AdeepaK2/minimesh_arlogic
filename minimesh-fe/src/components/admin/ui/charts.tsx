@@ -41,6 +41,7 @@ export function GlowLineChart({
         </linearGradient>
         <linearGradient id={`${gradientId}-stroke`} x1="0" y1="0" x2="1" y2="0">
           <stop offset="0%" stopColor="var(--admin-chart-cyan)" />
+          <stop offset="50%" stopColor="#3b82f6" />
           <stop offset="100%" stopColor="var(--admin-chart-accent)" />
         </linearGradient>
       </defs>

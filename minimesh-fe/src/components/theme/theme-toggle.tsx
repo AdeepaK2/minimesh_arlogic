@@ -38,7 +38,7 @@ export function ThemeToggle({
             onClick={() => setPreference(option.value)}
             className={`rounded-full px-2.5 py-1 text-[10px] font-semibold capitalize transition ${
               preference === option.value
-                ? "bg-gradient-to-r from-cyan-500 to-violet-500 text-white"
+                ? "minimesh-segment-active"
                 : "text-landing-muted hover:text-landing-heading"
             }`}
           >

@@ -28,9 +28,11 @@ export function AdminTopbar({ onMenuToggle }: { onMenuToggle?: () => void }) {
 
         <AdminThemeToggle className="shrink-0" />
 
-        <div className="hidden items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 md:flex">
-          <span className="admin-pulse h-2 w-2 rounded-full bg-emerald-400" />
-          <span className="text-xs font-medium text-emerald-300">All systems operational</span>
+        <div className="admin-status-pill hidden items-center gap-2 rounded-full border px-3 py-1.5 md:flex">
+          <span className="admin-pulse admin-status-pill-dot h-2 w-2 rounded-full" />
+          <span className="admin-status-pill-text text-xs font-medium">
+            All systems operational
+          </span>
         </div>
 
         <button

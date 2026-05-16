@@ -14,22 +14,18 @@ export default function AdminPricingPage() {
         title="Pricing & subscriptions"
         description="Edit plans, pricing, feature limits, and Stripe integration status."
         action={
-          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+          <div className="admin-segment-wrap flex items-center gap-1">
             <button
               type="button"
               onClick={() => setYearly(false)}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
-                !yearly ? "bg-cyan-500/20 text-cyan-300" : "text-zinc-400"
-              }`}
+              className={`admin-segment-btn ${!yearly ? "admin-segment-active" : ""}`}
             >
               Monthly
             </button>
             <button
               type="button"
               onClick={() => setYearly(true)}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
-                yearly ? "bg-cyan-500/20 text-cyan-300" : "text-zinc-400"
-              }`}
+              className={`admin-segment-btn ${yearly ? "admin-segment-active" : ""}`}
             >
               Yearly
             </button>
@@ -65,7 +61,7 @@ export default function AdminPricingPage() {
                   defaultChecked={plan.enabled}
                   className="peer sr-only"
                 />
-                <span className="h-6 w-11 rounded-full bg-zinc-700 peer-checked:bg-cyan-500/50 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition peer-checked:after:translate-x-5" />
+                <span className="admin-toggle-track h-6 w-11 rounded-full bg-zinc-700/80 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition peer-checked:after:translate-x-5" />
               </label>
             </div>
             <p className="mt-4 text-3xl font-bold text-white">
@@ -85,15 +81,15 @@ export default function AdminPricingPage() {
               </p>
               <div className="grid grid-cols-3 gap-2 text-center text-xs">
                 <div className="rounded-lg bg-white/5 p-2">
-                  <p className="text-cyan-400">{plan.limits.models}</p>
+                  <p className="admin-gradient-text font-semibold">{plan.limits.models}</p>
                   <p className="text-zinc-600">models</p>
                 </div>
                 <div className="rounded-lg bg-white/5 p-2">
-                  <p className="text-cyan-400">{plan.limits.exports}</p>
+                  <p className="admin-gradient-text font-semibold">{plan.limits.exports}</p>
                   <p className="text-zinc-600">exports</p>
                 </div>
                 <div className="rounded-lg bg-white/5 p-2">
-                  <p className="text-cyan-400">{plan.limits.api}</p>
+                  <p className="admin-gradient-text font-semibold">{plan.limits.api}</p>
                   <p className="text-zinc-600">API</p>
                 </div>
               </div>
@@ -102,14 +98,14 @@ export default function AdminPricingPage() {
             <ul className="mt-6 flex-1 space-y-2 text-sm text-zinc-400">
               {plan.features.map((f) => (
                 <li key={f} className="flex gap-2">
-                  <span className="text-cyan-400">✓</span> {f}
+                  <span className="admin-gradient-text">✓</span> {f}
                 </li>
               ))}
             </ul>
 
             <button
               type="button"
-              className="mt-6 w-full rounded-xl border border-cyan-500/30 py-2.5 text-sm font-medium text-cyan-300 transition hover:bg-cyan-500/10"
+              className="admin-btn-outline mt-6 w-full rounded-xl py-2.5 text-sm font-medium"
             >
               Edit plan
             </button>
