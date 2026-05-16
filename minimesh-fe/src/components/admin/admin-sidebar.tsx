@@ -47,14 +47,14 @@ export function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
               onClick={onNavigate}
               className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
                 active
-                  ? "admin-nav-active bg-cyan-500/10 text-cyan-300"
+                  ? "admin-nav-link-active"
                   : "text-landing-muted hover:bg-landing-hover hover:text-landing-heading"
               }`}
             >
               <Icon active={active} />
               {item.label}
               {active ? (
-                <span className="ml-auto h-1.5 w-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]" />
+                <span className="admin-nav-dot ml-auto h-1.5 w-1.5 rounded-full" />
               ) : null}
             </Link>
           );

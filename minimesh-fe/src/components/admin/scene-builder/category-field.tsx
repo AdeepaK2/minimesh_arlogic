@@ -111,11 +111,11 @@ export function CategoryField({
         onChange={(event) => handleSelectChange(event.target.value)}
       >
         {sortedOptions.map((item) => (
-          <option key={item} value={item} className="bg-[#12121a]">
+          <option key={item} value={item} className="bg-landing-code">
             {item}
           </option>
         ))}
-        <option value="__custom__" className="bg-[#12121a]">
+        <option value="__custom__" className="bg-landing-code">
           + Add new category…
         </option>
       </select>

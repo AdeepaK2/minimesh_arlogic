@@ -46,18 +46,16 @@ export function LibraryPanel({
     .map((t, i) => ({ name: t.name, count: 120 - i * 37 }));
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-white/10 bg-[#06060a]/80 backdrop-blur-xl">
-      <div className="border-b border-white/10 p-4">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-400">
-          Vector library
-        </p>
+    <div className="admin-panel flex h-full flex-col">
+      <div className="border-b border-landing p-4">
+        <p className="minimesh-eyebrow">Vector library</p>
         <div className="relative mt-3">
           <input
             type="search"
             value={searchQuery}
             onChange={(event) => onSearchChange(event.target.value)}
             placeholder="Search reusable objects…"
-            className="h-10 w-full rounded-xl border border-white/10 bg-black/40 pl-3 pr-3 text-sm text-white placeholder:text-zinc-600 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+            className="minimesh-input h-10 w-full"
           />
           {isSearching ? (
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-cyan-400">
@@ -67,7 +65,7 @@ export function LibraryPanel({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 border-b border-white/10 px-4 py-3">
+      <div className="grid grid-cols-3 gap-2 border-b border-landing px-4 py-3">
         {[
           { label: "Cache hit", value: "68%" },
           { label: "Avg reuse", value: "4.2×" },
@@ -75,9 +73,9 @@ export function LibraryPanel({
         ].map((stat) => (
           <div
             key={stat.label}
-            className="rounded-lg border border-white/5 bg-white/[0.02] px-2 py-1.5 text-center"
+            className="rounded-lg border border-landing bg-landing-card px-2 py-1.5 text-center"
           >
-            <p className="text-[9px] uppercase text-zinc-500">{stat.label}</p>
+            <p className="text-[9px] uppercase text-landing-subtle">{stat.label}</p>
             <p className="text-sm font-semibold text-cyan-300">{stat.value}</p>
           </div>
         ))}
@@ -91,7 +89,7 @@ export function LibraryPanel({
                 className={`rounded-xl border transition ${
                   selectedId === template.id
                     ? "admin-glow-border border-cyan-500/40 bg-cyan-500/10"
-                    : "border-white/10 bg-white/[0.02] hover:border-cyan-500/25 hover:bg-white/[0.04]"
+                    : "border-landing bg-landing-card hover:border-cyan-500/25 hover:bg-landing-hover"
                 }`}
               >
               <button
@@ -100,11 +98,11 @@ export function LibraryPanel({
                 className="w-full p-3 text-left"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-cyan-500/20 bg-gradient-to-br from-cyan-500/20 to-violet-500/10 text-[10px] font-bold text-cyan-200">
+                  <div className="admin-icon-tile flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border text-[10px] font-bold">
                     {template.category.slice(0, 2).toUpperCase()}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-white">
+                    <p className="truncate text-sm font-medium text-landing-heading">
                       {template.name}
                     </p>
                     <p className="text-[10px] uppercase text-zinc-500">
@@ -152,7 +150,7 @@ export function LibraryPanel({
         </ul>
       </div>
 
-      <div className="border-t border-white/10 p-3">
+      <div className="border-t border-landing p-3">
         <p className="text-[10px] font-semibold uppercase text-zinc-500">
           Most reused
         </p>

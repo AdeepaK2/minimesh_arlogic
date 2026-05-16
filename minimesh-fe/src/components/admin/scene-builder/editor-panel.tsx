@@ -36,8 +36,7 @@ interface EditorPanelProps {
   onLoadExample: () => void;
 }
 
-const inputClass =
-  "h-10 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none focus:border-cyan-500/40 focus:ring-2 focus:ring-cyan-500/15";
+const inputClass = "minimesh-input h-10 w-full";
 
 export function EditorPanel({
   name,
@@ -73,14 +72,12 @@ export function EditorPanel({
   const issues = jsonIssues;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-white/10 bg-[#06060a]/90 backdrop-blur-xl">
-      <div className="border-b border-white/10 px-4 py-3">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-400">
-          Scene template editor
-        </p>
+    <div className="admin-panel flex h-full flex-col">
+      <div className="border-b border-landing px-4 py-3">
+        <p className="minimesh-eyebrow">Scene template editor</p>
         <div className="flex items-start justify-between gap-2">
           <div>
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-landing-subtle">
               {isEditing
                 ? "Editing a saved template — save updates the library entry"
                 : "New template — save adds to the vector library"}
@@ -89,7 +86,7 @@ export function EditorPanel({
           <button
             type="button"
             onClick={onNewTemplate}
-            className="shrink-0 rounded-lg border border-white/10 px-2.5 py-1 text-[10px] font-semibold text-zinc-400 hover:border-cyan-500/30 hover:text-cyan-200"
+            className="shrink-0 rounded-lg border border-landing px-2.5 py-1 text-[10px] font-semibold text-landing-muted hover:border-cyan-500/30 hover:text-cyan-200"
           >
             + New
           </button>
@@ -99,7 +96,7 @@ export function EditorPanel({
       <div className="flex-1 space-y-4 overflow-y-auto p-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="grid gap-1.5 text-xs sm:col-span-2">
-            <span className="font-medium text-zinc-300">Object name</span>
+            <span className="font-medium text-landing-muted">Object name</span>
             <input
               className={inputClass}
               value={name}
@@ -108,7 +105,7 @@ export function EditorPanel({
             />
           </label>
           <label className="grid gap-1.5 text-xs sm:col-span-2">
-            <span className="font-medium text-zinc-300">Category</span>
+            <span className="font-medium text-landing-muted">Category</span>
             <CategoryField
               value={category}
               options={categoryOptions}
@@ -117,16 +114,16 @@ export function EditorPanel({
             />
           </label>
           <label className="grid gap-1.5 text-xs">
-            <span className="font-medium text-zinc-300">Visibility</span>
+            <span className="font-medium text-landing-muted">Visibility</span>
             <select
               className={inputClass}
               value={isPublic ? "public" : "private"}
               onChange={(e) => onIsPublicChange(e.target.value === "public")}
             >
-              <option value="public" className="bg-[#12121a]">
+              <option value="public" className="bg-landing-code">
                 Public · retrieval enabled
               </option>
-              <option value="private" className="bg-[#12121a]">
+              <option value="private" className="bg-landing-code">
                 Private · internal only
               </option>
             </select>
@@ -272,8 +269,8 @@ function ActionButton({
       onClick={onClick}
       className={`rounded-xl py-2.5 text-xs font-semibold transition disabled:opacity-40 ${className} ${
         primary
-          ? "bg-gradient-to-r from-cyan-500 to-violet-500 text-white hover:brightness-110"
-          : "border border-white/10 text-zinc-300 hover:border-cyan-500/30 hover:text-cyan-200"
+          ? "admin-btn-primary text-white hover:brightness-110"
+          : "border border-landing text-landing-muted hover:border-cyan-500/30 hover:text-cyan-200"
       }`}
     >
       {label}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AdminThemeToggle } from "@/components/admin/admin-theme-toggle";
 
 export function AdminTopbar({ onMenuToggle }: { onMenuToggle?: () => void }) {
   const [profileOpen, setProfileOpen] = useState(false);
@@ -10,7 +11,7 @@ export function AdminTopbar({ onMenuToggle }: { onMenuToggle?: () => void }) {
       <div className="flex h-16 items-center gap-4 px-6">
         <div className="relative flex-1 max-w-md">
           <svg
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-landing-subtle"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -25,7 +26,9 @@ export function AdminTopbar({ onMenuToggle }: { onMenuToggle?: () => void }) {
           />
         </div>
 
-        <div className="hidden items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 sm:flex">
+        <AdminThemeToggle className="shrink-0" />
+
+        <div className="hidden items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 md:flex">
           <span className="admin-pulse h-2 w-2 rounded-full bg-emerald-400" />
           <span className="text-xs font-medium text-emerald-300">All systems operational</span>
         </div>
@@ -47,7 +50,7 @@ export function AdminTopbar({ onMenuToggle }: { onMenuToggle?: () => void }) {
             onClick={() => setProfileOpen((v) => !v)}
             className="flex items-center gap-2 rounded-xl border border-landing py-1.5 pl-1.5 pr-3 transition hover:border-cyan-500/30"
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-violet-500 text-xs font-bold text-white">
+            <span className="admin-avatar flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white">
               AD
             </span>
             <span className="hidden text-sm font-medium text-landing-heading sm:block">

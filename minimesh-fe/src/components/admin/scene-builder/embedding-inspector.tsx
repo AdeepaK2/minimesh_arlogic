@@ -14,10 +14,8 @@ export function EmbeddingInspector({
   dimensions = 384,
 }: EmbeddingInspectorProps) {
   return (
-    <div className="rounded-xl border border-violet-500/20 bg-violet-500/[0.04] p-4">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-300">
-        Embedding inspector
-      </p>
+    <div className="admin-inspector-panel rounded-xl border p-4">
+      <p className="minimesh-eyebrow">Embedding inspector</p>
       <div className="mt-3 grid gap-2 text-xs text-zinc-400 sm:grid-cols-3">
         <div className="rounded-lg border border-white/5 bg-black/20 px-3 py-2">
           <p className="text-zinc-500">Dimensions</p>

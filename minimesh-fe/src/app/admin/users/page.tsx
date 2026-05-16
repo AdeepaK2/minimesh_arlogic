@@ -23,7 +23,7 @@ export default function AdminUsersPage() {
         action={
           <button
             type="button"
-            className="rounded-xl bg-gradient-to-r from-cyan-500 to-violet-500 px-4 py-2 text-sm font-semibold text-white"
+            className="minimesh-btn-primary h-10 px-4 text-sm"
           >
             Export CSV
           </button>
@@ -37,15 +37,15 @@ export default function AdminUsersPage() {
             placeholder="Search by name or email..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="h-10 flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white placeholder:text-zinc-600 focus:border-cyan-500/40 focus:outline-none"
+            className="minimesh-input h-10 flex-1"
           />
-          <select className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm text-zinc-300">
+          <select className="minimesh-input h-10">
             <option>All plans</option>
             <option>Free</option>
             <option>Pro</option>
             <option>Studio</option>
           </select>
-          <select className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm text-zinc-300">
+          <select className="minimesh-input h-10">
             <option>All statuses</option>
             <option>Active</option>
             <option>Suspended</option>
@@ -82,7 +82,7 @@ export default function AdminUsersPage() {
                         className="flex items-center gap-3 text-left"
                         onClick={() => setSelected(u.id)}
                       >
-                        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500/30 to-violet-500/30 text-xs font-bold text-cyan-200">
+                        <span className="admin-icon-tile flex h-9 w-9 items-center justify-center rounded-lg border text-xs font-bold">
                           {u.avatar}
                         </span>
                         <span>

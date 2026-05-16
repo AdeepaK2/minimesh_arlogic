@@ -357,7 +357,7 @@ export function SceneBuilderPortal() {
 
   if (authLoading) {
     return (
-      <div className="grid h-64 place-items-center text-sm text-zinc-500">
+      <div className="grid h-64 place-items-center text-sm text-landing-subtle">
         Initializing scene builder…
       </div>
     );
@@ -365,19 +365,20 @@ export function SceneBuilderPortal() {
 
   if (!accessToken) {
     return (
-      <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-10 text-center">
-        <h2 className="text-lg font-semibold text-white">Scene Builder Portal</h2>
-        <p className="mt-2 text-sm text-zinc-400">
+      <div className="minimesh-glass-card rounded-2xl border border-cyan-500/20 p-10 text-center">
+        <p className="minimesh-eyebrow">Scene Builder</p>
+        <h2 className="mt-2 text-lg font-semibold text-landing-heading">Scene Builder Portal</h2>
+        <p className="mt-2 text-sm text-landing-muted">
           Sign in to manage MiniMesh AI&apos;s reusable 3D memory library.
         </p>
         <div className="mt-6 flex justify-center gap-3">
-          <Link
-            href="/login"
-            className="rounded-full bg-cyan-500 px-5 py-2 text-sm font-semibold text-[#041018]"
-          >
+          <Link href="/login" className="minimesh-btn-primary inline-flex h-10 items-center px-5 text-sm">
             Sign in
           </Link>
-          <Link href="/signup" className="rounded-full border border-white/15 px-5 py-2 text-sm text-zinc-300">
+          <Link
+            href="/signup"
+            className="inline-flex h-10 items-center rounded-full border border-landing px-5 text-sm text-landing-muted transition hover:border-cyan-500/30 hover:text-landing-heading"
+          >
             Sign up
           </Link>
         </div>
@@ -387,16 +388,14 @@ export function SceneBuilderPortal() {
 
   return (
     <div className="-m-6 flex min-h-[calc(100dvh-4rem)] flex-col lg:-m-8">
-      <header className="border-b border-white/10 bg-[#06060a]/95 px-4 py-4 backdrop-blur-xl lg:px-6">
+      <header className="border-b border-landing bg-landing-surface px-4 py-4 backdrop-blur-xl lg:px-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-cyan-400">
-              MiniMesh AI · Internal
-            </p>
-            <h1 className="mt-1 text-xl font-bold tracking-tight text-white sm:text-2xl">
+            <p className="minimesh-eyebrow">MiniMesh AI · Internal</p>
+            <h1 className="mt-1 text-xl font-bold tracking-tight text-landing-heading sm:text-2xl">
               Scene Builder Portal
             </h1>
-            <p className="mt-1 max-w-2xl text-sm text-zinc-500">
+            <p className="mt-1 max-w-2xl text-sm text-landing-subtle">
               Build a curated library of admin-authored 3D fragments for semantic
               retrieval — {user?.email}
             </p>

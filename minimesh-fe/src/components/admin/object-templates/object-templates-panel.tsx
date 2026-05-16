@@ -321,7 +321,7 @@ export function ObjectTemplatesPanel() {
             <button
               type="submit"
               disabled={isSaving}
-              className="h-11 rounded-xl bg-gradient-to-r from-cyan-500 to-violet-500 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+              className="admin-btn-primary h-11 rounded-xl text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSaving ? "Saving template..." : "Save to vector library"}
             </button>

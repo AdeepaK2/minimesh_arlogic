@@ -13,8 +13,8 @@ const STEPS = [
 
 export function SemanticFlowDiagram() {
   return (
-    <div className="rounded-xl border border-cyan-500/15 bg-gradient-to-br from-cyan-500/[0.06] via-transparent to-violet-500/[0.06] p-4">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-400/90">
+    <div className="admin-panel-accent rounded-xl border p-4">
+      <p className="minimesh-eyebrow">
         Semantic retrieval pipeline
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-1.5">

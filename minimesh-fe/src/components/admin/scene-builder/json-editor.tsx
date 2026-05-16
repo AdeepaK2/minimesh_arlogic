@@ -12,7 +12,7 @@ export function JsonEditor({ value, onChange, issues }: JsonEditorProps) {
 
   return (
     <div
-      className={`overflow-hidden rounded-xl border bg-[#030508] font-mono text-xs ${
+      className={`admin-viewport-bg overflow-hidden rounded-xl border font-mono text-xs ${
         hasError
           ? "border-rose-500/40 shadow-[0_0_24px_rgba(244,63,94,0.12)]"
           : "border-cyan-500/20 shadow-[inset_0_0_40px_rgba(34,211,238,0.04)]"

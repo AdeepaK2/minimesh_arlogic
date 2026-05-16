@@ -24,10 +24,10 @@ export function FragmentPreviewViewport({
 }: FragmentPreviewViewportProps) {
   if (!scene) {
     return (
-      <div className="grid h-full min-h-[420px] place-items-center border border-cyan-500/10 bg-[#04060c]">
+      <div className="admin-viewport-bg grid h-full min-h-[420px] place-items-center border border-cyan-500/10">
         <div className="max-w-xs text-center">
           <p className="text-sm font-medium text-cyan-200/80">Live 3D Preview</p>
-          <p className="mt-2 text-xs leading-5 text-zinc-500">
+          <p className="mt-2 text-xs leading-5 text-landing-subtle">
             Validate JSON and click Generate Preview to render the fragment in-browser.
           </p>
         </div>
@@ -46,7 +46,7 @@ export function FragmentPreviewViewport({
   const bounds = useMemo(() => computeBounds(scene.objects), [scene.objects]);
 
   return (
-    <div className="relative h-full min-h-[420px] overflow-hidden border border-cyan-500/20 bg-[#04060c] shadow-[inset_0_0_80px_rgba(34,211,238,0.06)]">
+    <div className="admin-viewport-bg relative h-full min-h-[420px] overflow-hidden border border-cyan-500/20 shadow-[inset_0_0_80px_rgba(34,211,238,0.06)]">
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-px bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent" />
       <Canvas
         shadows

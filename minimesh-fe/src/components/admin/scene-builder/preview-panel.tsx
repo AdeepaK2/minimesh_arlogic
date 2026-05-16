@@ -40,16 +40,14 @@ export function PreviewPanel({
   ];
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-cyan-500/15 bg-[#05070d]/90">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
+    <div className="admin-panel flex h-full min-h-0 flex-col border-cyan-500/15">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-landing px-4 py-3">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-400">
-            Live 3D preview
-          </p>
-          <p className="text-xs text-zinc-500">
+          <p className="minimesh-eyebrow">Live 3D preview</p>
+          <p className="text-xs text-landing-subtle">
             {previewTitle ? (
               <>
-                <span className="text-zinc-300">{previewTitle}</span>
+                <span className="text-landing-muted">{previewTitle}</span>
                 {" · "}
               </>
             ) : null}
