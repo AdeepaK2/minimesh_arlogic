@@ -7,7 +7,7 @@ export function AdminTopbar({ onMenuToggle }: { onMenuToggle?: () => void }) {
   const [profileOpen, setProfileOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-landing bg-landing-surface backdrop-blur-xl">
+    <header className="sticky top-0 z-40 shrink-0 border-b border-landing bg-landing-surface backdrop-blur-xl">
       <div className="flex h-16 items-center gap-4 px-6">
         <div className="relative flex-1 max-w-md">
           <svg
