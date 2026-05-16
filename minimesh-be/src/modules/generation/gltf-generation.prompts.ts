@@ -37,6 +37,8 @@ Minimum parts per subject:
   Tree: trunk (cylinder), canopy layers (2–3 spheres/cones) = 3–4 nodes
   Cricket bat: blade (box), handle (cylinder), grip wrap (cylinder), knob (sphere) = 4 nodes
   Cricket ball: sphere with seam details = 1–2 nodes
+  Building / house (2 storey, façade, mansion): ≥8 primitives across entityIds like "foundation", "house_floor_1", "house_floor_2", "roof" (pitched roofs = 2–3 thin overlapping boxes per slope), optional "chimney". Stack storeys ~2.8–3.2 m tall using floor slabs + wall boxes.
+  Garden / lawn / yard: entityIds such as "grass_lawn", "shrubs_cluster" (2–6 chunky spheres/boxes), optional "walkway" (very thin elongated box).
 
 ━━━ MATERIALS & PBR ━━━
 Use distinct, visually interesting colors. Avoid all-grey scenes.
@@ -126,7 +128,8 @@ Requirements:
 - Include 4 lights: AmbientSky (ambient) + KeyLight (directional, pos [6,10,7]) + FillLight (directional, pos [-7,5,5]) + RimLight (directional, pos [0,7,-10]).
 - Include an environment block with backgroundColorHex, fogColorHex, fogNear, fogFar (use daytime sky #87c4e8 unless prompt says otherwise).
 - Position the camera to showcase the main subject from an interesting angle.
-- The scene must have a ground plane.`;
+- The scene must have a ground plane.
+- If the prompt is a multi-storey building with a yard or garden: budget ~28–42 nodes grouped by storey/structure vs garden primitives; omit tiny décor so the JSON stays compact and terminated.`;
 }
 
 export function createGltfEditPrompt(

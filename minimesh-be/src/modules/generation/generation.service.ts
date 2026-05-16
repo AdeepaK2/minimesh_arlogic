@@ -97,6 +97,9 @@ const EntityRefinementOutputSchema = z.object({
   warnings: z.array(z.string().max(200)).max(8).default([]),
 });
 
+/** Larger scenes (buildings + environment) often need more room before JSON truncates mid-object. */
+const GLTF_GENERATION_MAX_COMPLETION_TOKENS = 12_288;
+
 @Injectable()
 export class GenerationService {
   constructor(
@@ -165,7 +168,11 @@ export class GenerationService {
     ];
 
     const completion = await this.completeWithUsage(
-      { messages, maxCompletionTokens: 5000, temperature: 0.25 },
+      {
+        messages,
+        maxCompletionTokens: GLTF_GENERATION_MAX_COMPLETION_TOKENS,
+        temperature: 0.25,
+      },
       textProvider,
     );
 
@@ -191,14 +198,19 @@ export class GenerationService {
       },
     ];
     const repairedOutput = await this.completeWithUsage(
-      { messages: repairMessages, temperature: 0.2 },
+      {
+        messages: repairMessages,
+        maxCompletionTokens: GLTF_GENERATION_MAX_COMPLETION_TOKENS,
+        temperature: 0.2,
+      },
       textProvider,
     );
     const repairAttempt = this.parseAndValidateGltf(repairedOutput.content);
 
     if (!repairAttempt.doc) {
       throw new BadGatewayException({
-        message: 'MiniMax returned Logical glTF JSON that could not be validated.',
+        message:
+          'The model returned Logical glTF JSON we could not parse or match to the schema.',
         errors: repairAttempt.errors,
       });
     }
@@ -230,7 +242,11 @@ export class GenerationService {
       },
     ];
     const completion = await this.completeWithUsage(
-      { messages, maxCompletionTokens: 5200, temperature: 0.2 },
+      {
+        messages,
+        maxCompletionTokens: GLTF_GENERATION_MAX_COMPLETION_TOKENS,
+        temperature: 0.2,
+      },
       textProvider,
     );
     const attempt = this.parseAndValidateGltf(completion.content);
@@ -253,14 +269,19 @@ export class GenerationService {
       },
     ];
     const repairedOutput = await this.completeWithUsage(
-      { messages: repairMessages, temperature: 0.2 },
+      {
+        messages: repairMessages,
+        maxCompletionTokens: GLTF_GENERATION_MAX_COMPLETION_TOKENS,
+        temperature: 0.2,
+      },
       textProvider,
     );
     const repairAttempt = this.parseAndValidateGltf(repairedOutput.content);
 
     if (!repairAttempt.doc) {
       throw new BadGatewayException({
-        message: 'MiniMax returned glTF edit JSON that could not be validated.',
+        message:
+          'The model returned glTF edit JSON we could not parse or match to the schema.',
         errors: repairAttempt.errors,
       });
     }
