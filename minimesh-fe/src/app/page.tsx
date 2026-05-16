@@ -1,5 +1,5 @@
-import { GeneratorWorkspace } from "@/components/generator/generator-workspace";
+import { AppShell } from "@/components/app/app-shell";
 
 export default function Home() {
-  return <GeneratorWorkspace />;
+  return <AppShell />;
 }

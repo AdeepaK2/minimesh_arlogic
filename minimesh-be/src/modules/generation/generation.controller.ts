@@ -1,5 +1,12 @@
-import { BadRequestException, Body, Controller, Post } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ZodError } from 'zod';
+import { SupabaseAuthGuard } from '../../common/auth/supabase-auth.guard';
 import {
   GenerateSceneRequest,
   GenerateSceneRequestSchema,
@@ -7,6 +14,7 @@ import {
 import { GenerateSceneResult, GenerationService } from './generation.service';
 
 @Controller('generation')
+@UseGuards(SupabaseAuthGuard)
 export class GenerationController {
   constructor(private readonly generationService: GenerationService) {}
 

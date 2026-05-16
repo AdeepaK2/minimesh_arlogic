@@ -5,10 +5,12 @@ const API_BASE_URL =
 
 export async function generateScene(
   prompt: string,
+  accessToken: string,
 ): Promise<GenerateSceneResponse> {
-  const response = await fetch(`${API_BASE_URL}/generation/scene`, {
+  const response = await safeFetch(`${API_BASE_URL}/generation/scene`, {
     method: "POST",
     headers: {
+      Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ prompt }),
@@ -21,6 +23,16 @@ export async function generateScene(
   }
 
   return (await response.json()) as GenerateSceneResponse;
+}
+
+async function safeFetch(url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch {
+    throw new Error(
+      "Backend API is offline. Start the Nest server on port 3001 and try again.",
+    );
+  }
 }
 
 async function readErrorMessage(response: Response): Promise<string> {

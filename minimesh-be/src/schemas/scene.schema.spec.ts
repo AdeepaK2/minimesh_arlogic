@@ -25,6 +25,31 @@ describe('SceneDocumentSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts optional environment and emissive material fields', () => {
+    const result = SceneDocumentSchema.safeParse({
+      ...validScene,
+      objects: [
+        {
+          ...validScene.objects[0],
+          material: {
+            ...validScene.objects[0].material,
+            emissive: '#38bdf8',
+            emissiveIntensity: 1.4,
+          },
+        },
+      ],
+      environment: {
+        backgroundColor: '#07111f',
+        fogColor: '#0f172a',
+        fogNear: 14,
+        fogFar: 54,
+        exposure: 1.65,
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it('rejects unsupported object types', () => {
     const result = SceneDocumentSchema.safeParse({
       ...validScene,
