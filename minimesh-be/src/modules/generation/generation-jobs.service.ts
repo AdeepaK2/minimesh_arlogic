@@ -172,7 +172,7 @@ export class GenerationJobsService {
     provider: MiniMaxTextProvider,
   ) {
     if (request.action === 'generate' && request.prompt) {
-      return this.generationService.generateScene(
+      return this.generationService.generateGltfScene(
         request.prompt,
         request.chatContext,
         provider,
@@ -184,6 +184,15 @@ export class GenerationJobsService {
       request.scene &&
       request.instruction
     ) {
+      // Use glTF edit path if logicalGltf is available on the scene request
+      if (request.logicalGltf) {
+        return this.generationService.editGltfScene(
+          request.logicalGltf,
+          request.instruction,
+          request.chatContext,
+          provider,
+        );
+      }
       return this.generationService.editScene(
         request.scene,
         request.instruction,
@@ -223,20 +232,78 @@ export class GenerationJobsService {
       };
     }
 
-    const scene = candidate.result.scene;
     const prompt = request.prompt ?? request.instruction ?? '';
-    const coverage = this.scorePromptCoverage(scene, prompt);
-    const objectScore = Math.min(scene.objects.length, 36);
-    const entityScore = Math.min(scene.entities?.length ?? 0, 12) * 2;
-    const lightScore = Math.min(scene.lights.length, 4) * 3;
-    const warningPenalty = candidate.result.warnings.length * 2;
-    const score =
-      50 + coverage + objectScore + entityScore + lightScore - warningPenalty;
+    const result = candidate.result;
+
+    // Score using glTF nodes when available, fall back to legacy scene objects
+    let nodeScore: number;
+    let entityScore: number;
+    let lightScore: number;
+    let coverage: number;
+
+    if (result.logicalGltf) {
+      const doc = result.logicalGltf;
+      const primNodes = doc.nodes.filter((n) => n.primitiveType !== undefined);
+      const entityIds = new Set(doc.nodes.map((n) => n.entityId).filter(Boolean));
+
+      // Node richness (max 20) — reward detailed scenes without over-penalising minimal ones
+      nodeScore = Math.min(primNodes.length * 1.5, 20);
+
+      // Entity grouping (max 12) — reward multi-part objects
+      entityScore = Math.min(entityIds.size * 3, 12);
+
+      // Lighting quality (max 12) — 3 lights = full marks
+      lightScore = Math.min(doc.lights.length * 4, 12);
+
+      // Material diversity (max 10) — reward distinct colours
+      const uniqueColors = new Set(doc.materials.map((m) => m.baseColorHex?.toLowerCase())).size;
+      const materialScore = Math.min(uniqueColors * 2, 10);
+
+      // PBR usage (max 8) — reward non-default metallic/roughness values
+      const pbrUsage = doc.materials.filter(
+        (m) => m.metallicFactor !== undefined || m.roughnessFactor !== undefined,
+      ).length;
+      const pbrScore = Math.min(pbrUsage * 2, 8);
+
+      // Scale variety (max 6) — penalise if all nodes have identical uniform scale
+      const scales = primNodes.map((n) => JSON.stringify(n.scale ?? [1, 1, 1]));
+      const uniqueScales = new Set(scales).size;
+      const scaleScore = Math.min(uniqueScales * 0.5, 6);
+
+      // Ground plane present (bonus 4)
+      const hasGround = doc.nodes.some((n) => n.primitiveType === 'plane') ? 4 : 0;
+
+      coverage = this.scoreGltfPromptCoverage(doc, prompt);
+
+      const warningPenalty = result.warnings.length * 3;
+      const score = 28 + coverage + nodeScore + entityScore + lightScore
+        + materialScore + pbrScore + scaleScore + hasGround - warningPenalty;
+
+      return {
+        candidate: candidate.candidate,
+        result: {
+          ...result,
+          review: { selectedCandidate: candidate.candidate, candidateCount: 1, scores: [], judge: 'heuristic' },
+        },
+        score,
+        valid: true,
+        issues: [],
+      };
+    } else {
+      const scene = result.scene;
+      nodeScore = Math.min(scene.objects.length, 36);
+      entityScore = Math.min(scene.entities?.length ?? 0, 12) * 2;
+      lightScore = Math.min(scene.lights.length, 4) * 3;
+      coverage = this.scorePromptCoverage(scene, prompt);
+    }
+
+    const warningPenalty = result.warnings.length * 2;
+    const score = 50 + coverage + nodeScore + entityScore + lightScore - warningPenalty;
 
     return {
       candidate: candidate.candidate,
       result: {
-        ...candidate.result,
+        ...result,
         review: {
           selectedCandidate: candidate.candidate,
           candidateCount: 1,
@@ -266,14 +333,14 @@ export class GenerationJobsService {
 
     if (
       sorted.length > 1 &&
-      Math.abs(sorted[0].score - sorted[1].score) <= 5 &&
+      Math.abs(sorted[0].score - sorted[1].score) <= 12 &&
       this.openAIService?.isConfigured()
     ) {
       const judgedCandidate = await this.judgeCloseCandidates(sorted, request);
 
       if (judgedCandidate) {
         selected = judgedCandidate;
-        judge = 'gpt-5.4-mini';
+        judge = 'gpt-5.4';
       }
     }
 
@@ -313,7 +380,9 @@ export class GenerationJobsService {
       .map((candidate) => ({
         candidate: candidate.candidate,
         score: Math.round(candidate.score),
-        scene: this.summarizeScene(candidate.result?.scene),
+        scene: candidate.result?.logicalGltf
+          ? this.summarizeGltf(candidate.result.logicalGltf)
+          : this.summarizeScene(candidate.result?.scene),
       }));
 
     try {
@@ -321,22 +390,20 @@ export class GenerationJobsService {
         messages: [
           {
             role: 'system',
-            name: 'MiniMeshQualityJudge',
-            content:
-              'Choose the stronger MiniMesh scene candidate. Return only candidateA or candidateB.',
+            content: `You are a 3D scene quality judge for MiniMesh. Compare two candidate glTF scenes and pick the better one.
+Evaluate on: (1) prompt coverage — does it include all requested objects? (2) part richness — are subjects broken into multiple primitives? (3) material quality — distinct, realistic PBR colors? (4) lighting — key + fill + ambient? (5) correct proportions — real-world scale, objects not clipping.
+Return ONLY the word candidateA or candidateB.`,
           },
           {
             role: 'user',
-            name: 'user',
-            content: `User request: ${prompt}
+            content: `User prompt: "${prompt}"
 
-Candidates:
 ${JSON.stringify(summary, null, 2)}
 
-Choose the candidate that best follows the request, preserves scene context, and has coherent scale/composition.`,
+Which candidate is the better 3D scene? Reply with only candidateA or candidateB.`,
           },
         ],
-        maxCompletionTokens: 16,
+        maxCompletionTokens: 10,
         temperature: 0,
       });
       const selectedCandidate = response.includes('candidateB')
@@ -374,6 +441,21 @@ Choose the candidate that best follows the request, preserves scene context, and
     return Math.round((hits / tokens.length) * 30);
   }
 
+  private scoreGltfPromptCoverage(doc: import('../../schemas/logical-gltf.schema').LogicalGltfDocument, prompt: string): number {
+    const tokens = prompt
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((token) => token.length > 3)
+      .slice(0, 24);
+
+    if (tokens.length === 0) return 0;
+
+    const text = `${doc.sceneName} ${doc.description ?? ''} ${doc.nodes.map((n) => n.name).join(' ')} ${doc.materials.map((m) => m.name).join(' ')}`.toLowerCase();
+    const hits = tokens.filter((t) => text.includes(t)).length;
+
+    return Math.round((hits / tokens.length) * 30);
+  }
+
   private summarizeScene(scene: SceneDocument | undefined) {
     if (!scene) {
       return undefined;
@@ -396,6 +478,33 @@ Choose the candidate that best follows the request, preserves scene context, and
         id: entity.id,
         name: entity.name,
         objectIds: entity.objectIds,
+      })),
+    };
+  }
+
+  private summarizeGltf(doc: import('../../schemas/logical-gltf.schema').LogicalGltfDocument) {
+    const primNodes = doc.nodes.filter((n) => n.primitiveType !== undefined);
+    const entityIds = [...new Set(doc.nodes.map((n) => n.entityId).filter(Boolean))];
+
+    return {
+      sceneName: doc.sceneName,
+      description: doc.description,
+      nodeCount: primNodes.length,
+      entityCount: entityIds.length,
+      lightCount: doc.lights.length,
+      materialCount: doc.materials.length,
+      nodes: primNodes.slice(0, 20).map((n) => ({
+        name: n.name,
+        primitiveType: n.primitiveType,
+        entityId: n.entityId,
+        scale: n.scale,
+        translation: n.translation,
+      })),
+      materials: doc.materials.slice(0, 12).map((m) => ({
+        name: m.name,
+        baseColorHex: m.baseColorHex,
+        metallicFactor: m.metallicFactor,
+        roughnessFactor: m.roughnessFactor,
       })),
     };
   }

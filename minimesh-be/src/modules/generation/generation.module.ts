@@ -9,6 +9,8 @@ import { GenerationPlannerService } from './generation-planner.service';
 import { GenerationService } from './generation.service';
 import { ContextBuilderService } from './context-builder.service';
 import { ContextCompactionService } from './context-compaction.service';
+import { GltfBuilderService } from './gltf-builder.service';
+import { GltfPrimitiveLibraryService } from './gltf-primitive-library.service';
 import { LightingAgentService } from './lighting-agent.service';
 import { PartGenerationService } from './part-generation.service';
 import { ScaleAgentService } from './scale-agent.service';
@@ -24,6 +26,8 @@ import { TokenUsageService } from './token-usage.service';
     ContextBuilderService,
     ContextCompactionService,
     GenerationPlannerService,
+    GltfBuilderService,
+    GltfPrimitiveLibraryService,
     LightingAgentService,
     PartGenerationService,
     ScaleAgentService,

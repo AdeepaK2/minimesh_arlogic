@@ -6,6 +6,7 @@ import type {
   GenerationChatContext,
   SceneDocument,
 } from "@/lib/scene/types";
+import type { LogicalGltfDocument } from "@/lib/scene/gltf-types";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ??
@@ -119,6 +120,7 @@ export async function createGenerationJob(
     | {
         action: Extract<GenerationJobAction, "edit-scene">;
         scene: SceneDocument;
+        logicalGltf?: LogicalGltfDocument;
         instruction: string;
         chatContext?: GenerationChatContext;
       }
