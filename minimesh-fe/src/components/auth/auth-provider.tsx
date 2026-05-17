@@ -86,6 +86,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            // Must appear under Authentication → URL Configuration → Redirect URLs in Supabase.
+            emailRedirectTo: `${window.location.origin}/dashboard`,
+          },
         });
 
         if (signUpError) {
