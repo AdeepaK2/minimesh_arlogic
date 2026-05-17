@@ -156,15 +156,23 @@ export function Hero() {
               href="/signup"
               className="inline-flex h-12 items-center justify-center rounded-full bg-gradient-to-r from-cyan-500 to-violet-500 px-8 text-sm font-semibold text-white shadow-lg shadow-cyan-500/25 transition hover:brightness-110"
             >
-              Generate your first model
+              Sign up free
             </Link>
             <Link
-              href="#how-it-works"
+              href="/login"
               className="inline-flex h-12 items-center justify-center rounded-full border border-landing px-8 text-sm font-medium text-landing-muted transition hover:border-landing hover:bg-landing-hover"
             >
-              See how it works
+              Login
             </Link>
           </div>
+          <p className="mt-4">
+            <a
+              href="#how-it-works"
+              className="text-sm font-medium text-cyan-400/90 underline-offset-4 transition hover:text-cyan-300 hover:underline"
+            >
+              See how it works
+            </a>
+          </p>
           <p className="mt-6 text-sm text-landing-subtle">
             No credit card required · Standard 3D formats
           </p>
@@ -464,6 +472,12 @@ export function Footer() {
           <span className="font-semibold text-landing-heading">MiniMesh AI</span>
         </Link>
         <nav className="flex flex-wrap justify-center gap-6 text-sm text-landing-subtle">
+          <Link href="/signup" className="hover:text-landing-muted">
+            Sign up
+          </Link>
+          <Link href="/login" className="hover:text-landing-muted">
+            Login
+          </Link>
           <Link href="/admin" className="hover:text-landing-muted">
             Admin
           </Link>
